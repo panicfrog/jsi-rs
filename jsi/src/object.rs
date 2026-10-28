@@ -5,7 +5,7 @@ use crate::array_buffer::JsiArrayBuffer;
 use crate::function::JsiFn;
 use crate::host_object::{OwnedJsiHostObject, SharedJsiHostObject};
 use crate::{
-    sys, FromValue, JsiValue, OwnedJsiUserHostObject, PropName, RuntimeHandle,
+    sys, FromValue, JsiValue, OwnedJsiUserHostObject, PropName, RuntimeClone, RuntimeHandle,
     SharedJsiUserHostObject,
 };
 
@@ -80,6 +80,19 @@ impl<'rt> JsiObject<'rt> {
 
 pub trait FromObject<'rt>: Sized {
     fn from_object(obj: &JsiObject<'rt>, rt: &mut RuntimeHandle<'rt>) -> Option<Self>;
+}
+
+// "clones" the object handle: the result refers to the same underlying JS
+// object (Object copies are reference-like in jsi)
+impl RuntimeClone<'_> for JsiObject<'_> {
+    fn clone(&self, rt: &mut RuntimeHandle<'_>) -> Self {
+        let value =
+            JsiValue(sys::Value_copyFromObject(rt.get_inner_mut(), self.0.as_ref().unwrap()), PhantomData);
+        JsiObject(
+            sys::Value_asObject(&*value.0, rt.get_inner_mut()).expect("object value is not an object"),
+            PhantomData,
+        )
+    }
 }
 
 pub trait IntoObject<'rt> {

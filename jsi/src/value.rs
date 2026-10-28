@@ -184,6 +184,43 @@ impl<'rt> FromValue<'rt> for f64 {
     }
 }
 
+// integer FromValue impls go through f64 (all JS numbers are doubles); values
+// with a fractional part are accepted as-is and truncate, matching `as`
+// semantics — callers that need strictness should take f64 and validate.
+impl<'rt> FromValue<'rt> for i32 {
+    fn from_value(value: &JsiValue<'rt>, _rt: &mut RuntimeHandle<'rt>) -> Option<Self> {
+        value.0.get_number().ok().map(|n| n as i32)
+    }
+}
+
+impl<'rt> FromValue<'rt> for u32 {
+    fn from_value(value: &JsiValue<'rt>, _rt: &mut RuntimeHandle<'rt>) -> Option<Self> {
+        value.0.get_number().ok().map(|n| n as u32)
+    }
+}
+
+impl<'rt> FromValue<'rt> for usize {
+    fn from_value(value: &JsiValue<'rt>, _rt: &mut RuntimeHandle<'rt>) -> Option<Self> {
+        value.0.get_number().ok().map(|n| n as usize)
+    }
+}
+
+impl<'rt> FromValue<'rt> for isize {
+    fn from_value(value: &JsiValue<'rt>, _rt: &mut RuntimeHandle<'rt>) -> Option<Self> {
+        value.0.get_number().ok().map(|n| n as isize)
+    }
+}
+
+impl<'rt, T: FromValue<'rt>> FromValue<'rt> for Option<T> {
+    fn from_value(value: &JsiValue<'rt>, rt: &mut RuntimeHandle<'rt>) -> Option<Self> {
+        if value.is_null() || value.is_undefined() {
+            Some(None)
+        } else {
+            T::from_value(value, rt).map(Some)
+        }
+    }
+}
+
 impl<'rt> FromValue<'rt> for bool {
     fn from_value(value: &JsiValue<'rt>, _rt: &mut RuntimeHandle<'rt>) -> Option<Self> {
         value.0.get_bool().ok()

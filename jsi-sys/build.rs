@@ -50,7 +50,7 @@ fn main() {
         .exported_header_dirs
         .extend(includes.iter().map(|e| e.as_path()));
 
-    let mut bridges = vec!["src/ffi/base.rs", "src/ffi/host.rs"];
+    let mut bridges = vec!["src/ffi/base.rs", "src/ffi/host.rs", "src/ffi/native_state.rs"];
 
     if let Some("android") = target_os {
         bridges.push("src/ffi/android.rs");
@@ -67,4 +67,5 @@ fn main() {
 
     println!("cargo:rerun-if-changed=include/wrapper.h");
     println!("cargo:rerun-if-changed=include/host.h");
+    println!("cargo:rerun-if-changed=include/native_state.h");
 }

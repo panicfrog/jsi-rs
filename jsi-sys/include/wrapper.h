@@ -37,6 +37,7 @@ using Scope = ::facebook::jsi::Scope;
 using JSIException = ::facebook::jsi::JSIException;
 using JSError = ::facebook::jsi::JSError;
 using HostObject = ::facebook::jsi::HostObject;
+using NativeState = ::facebook::jsi::NativeState;
 using Runtime = ::facebook::jsi::Runtime;
 using Pointer = ::facebook::jsi::Pointer;
 using PropNameID = ::facebook::jsi::PropNameID;
@@ -272,6 +273,46 @@ bool Object_hasProperty(Object const &self, Runtime &rt, const PropNameID &name)
 bool Object_isArray(Object const &self, Runtime &rt)
 {
   return self.isArray(rt);
+}
+
+// NativeState
+
+bool Runtime_hasNativeState(
+    Runtime &rt, Object const &obj
+) noexcept
+{
+  return rt.hasNativeState(obj);
+}
+
+::std::shared_ptr<NativeState> Runtime_getNativeState(
+    Runtime &rt, Object const &obj
+) noexcept
+{
+  // NOTE: the caller must check hasNativeState first; Hermes asserts if the
+  // object has no native state
+  return rt.getNativeState(obj);
+}
+
+void Object_setNativeState(
+    Object const &self, Runtime &rt, ::std::shared_ptr<NativeState> state
+) noexcept
+{
+  self.setNativeState(rt, std::move(state));
+}
+
+::std::unique_ptr<Object> Object_createWithPrototype(
+    Runtime &rt, Value const &prototype
+) noexcept
+{
+  auto value = Object::create(rt, prototype);
+  return std::make_unique<Object>(std::move(value));
+}
+
+void Object_setExternalMemoryPressure(
+    Object const &self, Runtime &rt, size_t amt
+) noexcept
+{
+  self.setExternalMemoryPressure(rt, amt);
 }
 
 bool Object_isArrayBuffer(Object const &self, Runtime &rt)

@@ -58,6 +58,36 @@ pub mod ffi {
 
         pub type HostObject;
 
+        pub type NativeState;
+
+        #[namespace = "jsi_rs::ffi"]
+        pub fn Runtime_hasNativeState(
+            rt: Pin<&mut Runtime>,
+            obj: &JsiObject,
+        ) -> bool;
+        #[namespace = "jsi_rs::ffi"]
+        pub fn Runtime_getNativeState(
+            rt: Pin<&mut Runtime>,
+            obj: &JsiObject,
+        ) -> SharedPtr<NativeState>;
+        #[namespace = "jsi_rs::ffi"]
+        pub fn Object_setNativeState(
+            obj: &JsiObject,
+            rt: Pin<&mut Runtime>,
+            state: SharedPtr<NativeState>,
+        );
+        #[namespace = "jsi_rs::ffi"]
+        pub fn Object_createWithPrototype(
+            rt: Pin<&mut Runtime>,
+            prototype: &JsiValue,
+        ) -> UniquePtr<JsiObject>;
+        #[namespace = "jsi_rs::ffi"]
+        pub fn Object_setExternalMemoryPressure(
+            obj: &JsiObject,
+            rt: Pin<&mut Runtime>,
+            amt: usize,
+        );
+
         #[namespace = "jsi_rs::ffi"]
         pub fn HostObject_get(
             _self: Pin<&mut HostObject>,

@@ -23,6 +23,11 @@ impl HostObject {
 #[repr(transparent)]
 pub struct RustHostObject<'a>(pub Box<dyn HostObjectImpl + 'a>);
 
+/// Opaque carrier for a Rust object stored as a JS object's NativeState.
+/// Dropping the JS object's native state drops the Rust object.
+#[repr(transparent)]
+pub struct RustNativeCarrier(pub Box<dyn std::any::Any + Send + Sync>);
+
 // i wanted to put these functions inside of an impl block, but this create a
 // circular dependency headache on the C++ side b/c you can't access the members
 // of a type before it is defined, so they're just normal functions

@@ -230,7 +230,30 @@ dependencies = [
  "dunce",
  "jsi",
  "jsi-sys",
+ "jsi-turbo",
+ "linkme",
  "serde",
+]
+
+[[package]]
+name = "jsi-turbo"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "jsi",
+ "jsi-turbo-macros",
+ "linkme",
+]
+
+[[package]]
+name = "jsi-turbo-macros"
+version = "0.1.0"
+dependencies = [
+ "heck",
+ "proc-macro-error2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.56",
 ]
 
 [[package]]
@@ -240,6 +263,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f78c730aaa7d0b9336a299029ea49f9ee53b0ed06e9202e8cb7db9bae7b8c82"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "linkme"
+version = "0.3.37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3045e122bd98aef8ec3ad58ce84f0791f64e70163d1a02710af4aa11a4d54cc5"
+dependencies = [
+ "linkme-impl",
+]
+
+[[package]]
+name = "linkme-impl"
+version = "0.3.37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77060ebe535362c3da75682cd17b0431017b6e7c5661e714fc69a7ad017d1301"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
 ]
 
 [[package]]

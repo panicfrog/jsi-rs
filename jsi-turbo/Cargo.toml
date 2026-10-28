@@ -1,0 +1,14 @@
+[package]
+name = "jsi-turbo"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+license = "MIT"
+description = "Rust TurboModule framework for React Native (Rust macros as the spec source)"
+publish = false
+
+[dependencies]
+jsi = { path = "../jsi" }
+jsi-turbo-macros = { path = "../jsi-turbo-macros" }
+linkme = "0.3"
+anyhow = "1.0"
