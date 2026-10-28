@@ -34,8 +34,15 @@ fn js_error_message(rt: &mut RuntimeHandle<'_>, raw: &mut cxx::UniquePtr<jsi_sys
     out.into_js(rt)
 }
 
-#[derive(Default)]
-pub struct MathUtils;
+pub struct MathUtils {
+    scale: std::sync::Mutex<f64>,
+}
+
+impl Default for MathUtils {
+    fn default() -> Self {
+        Self { scale: std::sync::Mutex::new(1.) }
+    }
+}
 
 #[RustTurboModule("MathUtils")]
 impl MathUtils {
@@ -63,6 +70,19 @@ impl MathUtils {
     #[turbo(getter)]
     pub fn get_version(&self, _rt: &mut RuntimeHandle) -> anyhow::Result<String> {
         Ok("1.0".into())
+    }
+
+    // getter + setter pair on the same property (`scale`), backed by
+    // interior mutability (module methods take &self)
+    #[turbo(getter)]
+    pub fn get_scale(&self) -> anyhow::Result<f64> {
+        Ok(*self.scale.lock().unwrap())
+    }
+
+    #[turbo(setter)]
+    pub fn set_scale(&self, value: f64) -> anyhow::Result<()> {
+        *self.scale.lock().unwrap() = value;
+        Ok(())
     }
 }
 
@@ -105,6 +125,11 @@ fn turbo_vertical_slice() {
             "undefined",
             eval(rt, raw, "String(RustTurbo.get('MathUtils').poke())").into_js::<String>(rt)
         );
+
+        // getter/setter pair exposed as one writable property
+        assert_eq!(1., eval(rt, raw, "RustTurbo.get('MathUtils').scale").into_js::<f64>(rt));
+        eval(rt, raw, "RustTurbo.get('MathUtils').scale = 5");
+        assert_eq!(5., eval(rt, raw, "RustTurbo.get('MathUtils').scale").into_js::<f64>(rt));
 
         // methods cannot be reassigned (non-writable, non-configurable)
         assert_eq!(

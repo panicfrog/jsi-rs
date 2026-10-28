@@ -1,7 +1,6 @@
 //! Parsing of `#[RustTurboModule("Name")]` impl blocks.
 
 use heck::ToLowerCamelCase;
-use proc_macro2::Span;
 use proc_macro_error2::{abort, emit_error};
 use syn::{FnArg, Ident, ImplItemFn, ItemImpl, Pat, ReturnType, Type};
 
@@ -50,7 +49,8 @@ pub fn parse_impl(module_name: &str, mut impl_block: ItemImpl) -> Option<ParsedM
     let type_sym = type_symbol(&self_ty);
 
     let mut items = Vec::new();
-    let mut seen_js_names: Vec<(String, Span)> = Vec::new();
+    // (js_name, kind) pairs; a getter+setter pair on one name is legal
+    let mut seen_js_names: Vec<(String, MethodKind)> = Vec::new();
 
     for item in &mut impl_block.items {
         let syn::ImplItem::Fn(f) = item else {
@@ -63,15 +63,21 @@ pub fn parse_impl(module_name: &str, mut impl_block: ItemImpl) -> Option<ParsedM
         };
         match parse_method(f) {
             Some(it) => {
-                if let Some((_, prev_span)) = seen_js_names.iter().find(|(n, _)| *n == it.js_name) {
+                let conflict = seen_js_names
+                    .iter()
+                    .find(|(n, kind)| *n == it.js_name && !is_legal_pair(kind, &it.kind));
+                if let Some((name, _)) = conflict {
                     emit_error!(
                         f.sig.ident,
-                        "duplicate JS name `{}` in module `{}` (already defined here)", it.js_name, module_name;
-                        note = "use #[turbo(method as otherName)] to disambiguate"
+                        "duplicate JS name `{}` in module `{}`", name, module_name;
+                        note = "only one getter + one setter may share a name; use #[turbo(method as otherName)] to disambiguate"
                     );
-                    let _ = prev_span;
                 } else {
-                    seen_js_names.push((it.js_name.clone(), f.sig.ident.span()));
+                    seen_js_names.push((it.js_name.clone(), match it.kind {
+                        MethodKind::Method => MethodKind::Method,
+                        MethodKind::Getter => MethodKind::Getter,
+                        MethodKind::Setter => MethodKind::Setter,
+                    }));
                 }
                 items.push(it);
             }
@@ -291,6 +297,13 @@ fn parse_method(f: &mut ImplItemFn) -> Option<Item> {
         ret,
         ret_is_unit,
     })
+}
+
+fn is_legal_pair(a: &MethodKind, b: &MethodKind) -> bool {
+    matches!(
+        (a, b),
+        (MethodKind::Getter, MethodKind::Setter) | (MethodKind::Setter, MethodKind::Getter)
+    )
 }
 
 // ---------------------------------------------------------------------------
