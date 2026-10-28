@@ -333,7 +333,9 @@ void Array_set(Array &self, Runtime &rt, size_t index, Value const &value)
 {
   void (::facebook::jsi::Array::*fp)(Runtime &, size_t, Value const &) const =
       &::facebook::jsi::Array::setValueAtIndex;
-  (self.*fp)(rt, index, &value);
+  // NOTE: pass `value` by reference here; `&value` would go through Value's
+  // implicit `Value(bool)` constructor and always store `true`
+  (self.*fp)(rt, index, value);
 }
 
 // Function

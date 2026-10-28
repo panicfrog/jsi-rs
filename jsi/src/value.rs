@@ -18,12 +18,19 @@ pub struct JsiValue<'rt>(
 );
 
 impl<'rt> JsiValue<'rt> {
+    /// Wraps a raw JSI value obtained from another FFI boundary. The caller
+    /// must ensure that the value was created by (and is only used with) the
+    /// same runtime that `'rt` borrows.
+    pub fn from_raw(ptr: cxx::UniquePtr<sys::JsiValue>) -> Self {
+        Self(ptr, PhantomData)
+    }
+
     pub fn new_undefined() -> Self {
         Self(sys::Value_fromUndefined(), PhantomData)
     }
 
     pub fn new_null() -> Self {
-        Self(sys::Value_fromUndefined(), PhantomData)
+        Self(sys::Value_fromNull(), PhantomData)
     }
 
     pub fn new_number(n: f64) -> Self {

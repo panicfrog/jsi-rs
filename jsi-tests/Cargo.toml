@@ -1,6 +1,6 @@
 [package]
 name = "jsi-tests"
-version = "0.3.1-alpha.1"
+version = "0.73.0"
 edition = "2021"
 links = "hermes"
 publish = false
@@ -10,6 +10,7 @@ cxx = "1.0"
 anyhow = "1.0"
 jsi-sys = { path = "../jsi-sys" }
 jsi = { path = "../jsi" }
+serde = { version = "1.0", features = ["derive"] }
 
 [build-dependencies]
 cxx-build = "1.0"

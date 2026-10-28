@@ -59,17 +59,22 @@ fn main() {
         .files(compiles)
         .compile("js-tests");
 
-    println!("cargo:rustc-link-lib=hermes");
-    println!(
-        "cargo:rustc-link-search={}",
-        pkg_base
-            .join("../vendor/hermes/build/API/hermes/")
-            .to_string_lossy()
-    );
-    println!(
-        "cargo:rustc-env=LD_LIBRARY_PATH={}",
-        pkg_base
-            .join("../vendor/hermes/build/API/hermes/")
-            .to_string_lossy()
-    );
+    let hermes_lib_dir = pkg_base.join("../vendor/hermes/build/API/hermes/");
+
+    // on macOS, hermes builds as a .framework bundle, so it must be linked and
+    // found via -framework; on other platforms it's a plain shared library
+    if hermes_lib_dir.join("hermes.framework").is_dir() {
+        println!(
+            "cargo:rustc-link-search=framework={}",
+            hermes_lib_dir.to_string_lossy()
+        );
+        println!("cargo:rustc-link-lib=framework=hermes");
+    } else {
+        println!("cargo:rustc-link-lib=hermes");
+        println!("cargo:rustc-link-search={}", hermes_lib_dir.to_string_lossy());
+    }
+
+    // the framework's install name is @rpath/..., so give test binaries an
+    // rpath pointing at the hermes build output
+    println!("cargo:rustc-link-arg=-Wl,-rpath,{}", hermes_lib_dir.to_string_lossy());
 }
