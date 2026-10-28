@@ -1,4 +1,4 @@
-use inflector::Inflector;
+use heck::ToLowerCamelCase;
 use proc_macro2::TokenStream;
 
 use quote::{format_ident, quote};
@@ -77,7 +77,7 @@ impl Parse for HostEventImpl {
             }
         };
 
-        let event_names_str = event_names.iter().map(|id| id.to_string().to_camel_case());
+        let event_names_str = event_names.iter().map(|id| id.to_string().to_lower_camel_case());
 
         let event_key_impl_def = quote! {
             #[automatically_derived]

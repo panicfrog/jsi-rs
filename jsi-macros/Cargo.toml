@@ -1,7 +1,8 @@
 [package]
 name = "jsi-macros"
-version = "0.73.0"
+version = "0.77.3"
 edition = "2021"
+rust-version = "1.74"
 license = "MIT"
 description = "Support macros for jsi-rs"
 authors = ["Ibiyemi Abiodun <ibiyemi@intulon.com>"]
@@ -11,8 +12,8 @@ repository = "https://github.com/laptou/jsi-rs/"
 proc-macro = true
 
 [dependencies]
-Inflector = "0.11.4"
-proc-macro-error = "1.0"
+heck = "0.5"
+proc-macro-error2 = "2"
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "2", features = ["full", "quote"] }

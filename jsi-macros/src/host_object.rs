@@ -1,6 +1,6 @@
-use inflector::Inflector;
+use heck::ToLowerCamelCase;
 use proc_macro2::{Span, TokenStream};
-use proc_macro_error::{abort, emit_error, emit_warning};
+use proc_macro_error2::{abort, emit_error, emit_warning};
 use quote::{quote, quote_spanned};
 use syn::{
     parse::Parse, spanned::Spanned, FnArg, GenericParam, Ident, ImplItem, ImplItemFn, ItemImpl,
@@ -150,7 +150,7 @@ impl Parse for HostObjectImpl {
                             } else {
                                 let prop = it.sig.ident.to_string();
                                 let prop = prop.strip_prefix("get_").unwrap_or(prop.as_str());
-                                prop.to_camel_case()
+                                prop.to_lower_camel_case()
                             };
 
                             if let Some(a) = it.sig.asyncness {
@@ -189,7 +189,7 @@ impl Parse for HostObjectImpl {
                             } else {
                                 let prop = it.sig.ident.to_string();
                                 let prop = prop.strip_prefix("set_").unwrap_or(prop.as_str());
-                                prop.to_camel_case()
+                                prop.to_lower_camel_case()
                             };
 
                             if let Some(a) = it.sig.asyncness {
@@ -227,7 +227,7 @@ impl Parse for HostObjectImpl {
                                 name.to_string()
                             } else {
                                 let name = it.sig.ident.to_string();
-                                name.to_camel_case()
+                                name.to_lower_camel_case()
                             };
 
                             let inputs: Vec<_> = it.sig.inputs.iter().collect();
