@@ -34,8 +34,11 @@ impl<'rt> JsiObject<'rt> {
     }
 
     pub fn has(&self, prop: PropName, rt: &mut RuntimeHandle<'rt>) -> bool {
-        self.0
-            .has_property(rt.get_inner_mut(), prop.0.as_ref().unwrap())
+        sys::Object_hasProperty(
+            self.0.as_ref().unwrap(),
+            rt.get_inner_mut(),
+            prop.0.as_ref().unwrap(),
+        )
     }
 
     pub fn set(&mut self, prop: PropName, value: &JsiValue, rt: &mut RuntimeHandle<'rt>) {
@@ -55,21 +58,23 @@ impl<'rt> JsiObject<'rt> {
     }
 
     pub fn is_array(&self, rt: &mut RuntimeHandle<'rt>) -> bool {
-        self.0.is_array(rt.get_inner_mut())
+        sys::Object_isArray(self.0.as_ref().unwrap(), rt.get_inner_mut())
     }
 
     pub fn is_array_buffer(&self, rt: &mut RuntimeHandle<'rt>) -> bool {
-        self.0.is_array_buffer(rt.get_inner_mut())
+        sys::Object_isArrayBuffer(self.0.as_ref().unwrap(), rt.get_inner_mut())
     }
 
     pub fn is_fn(&self, rt: &mut RuntimeHandle<'rt>) -> bool {
-        self.0.is_function(rt.get_inner_mut())
+        sys::Object_isFunction(self.0.as_ref().unwrap(), rt.get_inner_mut())
     }
 
     pub fn is_instance(&mut self, ctor: JsiFn, rt: &mut RuntimeHandle<'rt>) -> bool {
-        self.0
-            .pin_mut()
-            .instance_of(rt.get_inner_mut(), ctor.0.as_ref().unwrap())
+        sys::Object_instanceOf(
+            self.0.as_ref().unwrap(),
+            rt.get_inner_mut(),
+            ctor.0.as_ref().unwrap(),
+        )
     }
 }
 

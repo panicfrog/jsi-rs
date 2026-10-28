@@ -1,7 +1,7 @@
 use std::{future::Future, pin::Pin};
 
 #[cfg(feature = "macros")]
-pub use jsi_macros::host_object;
+pub use jsi_macros::{host_object, HostEvent};
 pub use jsi_sys as sys;
 
 // allows us to use the proc macros inside this crate
@@ -13,6 +13,7 @@ mod call_invoker;
 #[cfg(feature = "serde")]
 mod convert;
 mod function;
+mod host_event;
 mod host_function;
 mod host_object;
 mod object;
@@ -28,6 +29,7 @@ pub use call_invoker::*;
 #[cfg(feature = "serde")]
 pub use convert::*;
 pub use function::*;
+pub use host_event::*;
 pub use host_function::*;
 pub use host_object::*;
 pub use object::*;

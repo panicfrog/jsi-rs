@@ -2,7 +2,7 @@ mod common;
 
 use common::create_raw_runtime;
 use jsi::{
-    host_object, FromObject, FromValue, IntoValue, JsiFn, JsiObject, JsiString, JsiValue, PropName,
+    host_object, FromObject, IntoValue, JsiFn, JsiObject, JsiString, JsiValue, PropName,
     RuntimeHandle, UserHostObject,
 };
 
@@ -14,7 +14,7 @@ fn with_rt(f: impl FnOnce(&mut RuntimeHandle<'static>, &mut cxx::UniquePtr<jsi_s
 }
 
 fn eval<'rt>(
-    rt: &mut RuntimeHandle<'rt>,
+    _rt: &mut RuntimeHandle<'rt>,
     raw: &mut cxx::UniquePtr<jsi_sys::Runtime>,
     js: &str,
 ) -> JsiValue<'rt> {
@@ -204,5 +204,168 @@ fn string_display() {
     with_rt(|rt, _| {
         let s = JsiString::new("héllo wörld", rt);
         assert_eq!("héllo wörld", rt.to_string(&s));
+    });
+}
+
+// Regression: the macro used to generate unqualified `PropName` / `jsi::...`
+// paths, forcing users to import them. This module deliberately imports
+// nothing but the macro itself.
+mod macro_hygiene {
+    use jsi::host_object;
+
+    pub struct MinimalHostObject;
+
+    #[host_object]
+    impl MinimalHostObject {
+        pub fn compute(&self, _rt: &mut jsi::RuntimeHandle, x: f64) -> anyhow::Result<f64> {
+            Ok(x * 2.)
+        }
+    }
+}
+
+#[test]
+fn host_object_macro_hygiene() {
+    with_rt(|rt, raw| {
+        let ho = macro_hygiene::MinimalHostObject;
+        rt.global()
+            .set(PropName::new("Minimal", rt), &ho.into_value(rt), rt);
+
+        let out = eval(rt, raw, "Minimal.compute(21)");
+        assert_eq!(42., out.into_js::<f64>(rt));
+    });
+}
+
+#[test]
+fn host_object_bad_args_error_message() {
+    with_rt(|rt, raw| {
+        let ho = ExampleHostObject { secret: 1. };
+        rt.global()
+            .set(PropName::new("BadArgs", rt), &ho.into_value(rt), rt);
+
+        // calling with a string where a number is expected must throw a JS
+        // error whose message names the offending argument (regression: it
+        // used to print the literal "$ arg_names")
+        let out = eval(
+            rt,
+            raw,
+            r#"(() => { try { BadArgs.add("not a number", 1); return "NO ERROR" } catch (e) { return e.message } })()"#,
+        );
+        let msg: String = out.into_js(rt);
+        assert!(msg.contains("a"), "error message should name argument 'a', got: {msg}");
+        assert!(!msg.contains("$"), "error message should not contain '$', got: {msg}");
+    });
+}
+
+mod events {
+    use jsi::HostEvent;
+
+    #[derive(Debug, PartialEq)]
+    pub enum TestEvent {
+        Started,
+        Progress { percent: f64 },
+        Finished { ok: bool, label: String },
+    }
+
+    impl<'rt> HostEvent<'rt> for TestEvent {
+        type Key = TestEventKey;
+
+        fn key(&self) -> TestEventKey {
+            match self {
+                TestEvent::Started => TestEventKey::Started,
+                TestEvent::Progress { .. } => TestEventKey::Progress,
+                TestEvent::Finished { .. } => TestEventKey::Finished,
+            }
+        }
+
+        fn args(self, rt: &mut jsi::RuntimeHandle<'rt>) -> Vec<jsi::JsiValue<'rt>> {
+            use jsi::IntoValue;
+            match self {
+                TestEvent::Started => vec![],
+                TestEvent::Progress { percent } => vec![percent.into_value(rt)],
+                TestEvent::Finished { ok, label } => vec![ok.into_value(rt), label.into_value(rt)],
+            }
+        }
+    }
+
+    #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+    pub enum TestEventKey {
+        Started,
+        Progress,
+        Finished,
+    }
+
+    impl std::str::FromStr for TestEventKey {
+        type Err = anyhow::Error;
+
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            match s {
+                "started" => Ok(TestEventKey::Started),
+                "progress" => Ok(TestEventKey::Progress),
+                "finished" => Ok(TestEventKey::Finished),
+                _ => anyhow::bail!("invalid event name"),
+            }
+        }
+    }
+
+    impl jsi::HostEventKey for TestEventKey {}
+}
+
+#[test]
+fn host_event_trait() {
+    with_rt(|rt, _| {
+        use events::*;
+        use jsi::HostEvent;
+
+        // key() maps variants to the key enum
+        assert_eq!(TestEventKey::Started, TestEvent::Started.key());
+        assert_eq!(TestEventKey::Progress, TestEvent::Progress { percent: 50. }.key());
+
+        // args() converts payloads to JS values
+        let args = TestEvent::Finished { ok: true, label: "done".into() }.args(rt);
+        assert_eq!(2, args.len());
+        assert_eq!(true, args[0].into_js::<bool>(rt));
+        assert_eq!("done", args[1].into_js::<String>(rt));
+
+        // the key enum parses from its camelCase name (what the derive
+        // generates for `#[derive(HostEvent)]`)
+        assert_eq!(TestEventKey::Finished, "finished".parse().unwrap());
+        assert!("nope".parse::<TestEventKey>().is_err());
+    });
+}
+
+// exercises the actual `#[derive(HostEvent)]` macro end-to-end
+mod derived_events {
+    use jsi::HostEvent;
+
+    #[derive(HostEvent, Debug)]
+    pub enum DerivedEvent {
+        Connected,
+        Message { text: String },
+        Disconnected { reason: String, code: f64 },
+    }
+}
+
+#[test]
+fn host_event_derive() {
+    with_rt(|rt, _| {
+        use derived_events::*;
+        use jsi::HostEvent;
+
+        // the derive generates the companion Key enum with camelCase parsing
+        assert_eq!(DerivedEventKey::Connected, "connected".parse().unwrap());
+        assert_eq!(DerivedEventKey::Message, "message".parse().unwrap());
+        assert!("bogus".parse::<DerivedEventKey>().is_err());
+
+        assert_eq!(DerivedEventKey::Connected, DerivedEvent::Connected.key());
+
+        // args() converts each payload field into a JsiValue
+        let args = DerivedEvent::Disconnected { reason: "bye".into(), code: 42. }.args(rt);
+        assert_eq!(2, args.len());
+        assert_eq!("bye", args[0].into_js::<String>(rt));
+        assert_eq!(42., args[1].into_js::<f64>(rt));
+
+        let args = DerivedEvent::Message { text: "hi".into() }.args(rt);
+        assert_eq!(1, args.len());
+        assert_eq!("hi", args[0].into_js::<String>(rt));
     });
 }

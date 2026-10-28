@@ -64,7 +64,7 @@ impl Parse for HostEventImpl {
                     } }
                 }
                 syn::Fields::Unit => {
-                    quote! { Self::#variant_name => vec![], }
+                    quote! { Self::#variant_name => vec![] }
                 }
             });
         }
@@ -87,13 +87,13 @@ impl Parse for HostEventImpl {
                 fn from_str(s: &str) -> Result<Self, Self::Err> {
                     match s {
                         #(#event_names_str => Ok(Self::#event_names),)*
-                        _ => bail!("invalid event name")
+                        _ => ::anyhow::bail!("invalid event name")
                     }
                 }
             }
 
             #[automatically_derived]
-            impl ::splicer_js_api::event::HostEventKey for #event_key_name {
+            impl ::jsi::HostEventKey for #event_key_name {
             }
         };
 
@@ -110,7 +110,7 @@ impl Parse for HostEventImpl {
 
         let event_impl_def = quote! {
             #[automatically_derived]
-            impl<'rt> ::splicer_js_api::event::HostEvent<'rt> for #enum_name #enum_impl_generics {
+            impl<'rt> ::jsi::HostEvent<'rt> for #enum_name #enum_impl_generics {
                 type Key = #event_key_name;
 
                 fn key(&self) -> Self::Key {
@@ -119,7 +119,7 @@ impl Parse for HostEventImpl {
                     }
                 }
 
-                fn args(self, rt: &mut ::jsi::RuntimeHandle<'rt>) -> Vec<JsiValue<'rt>> {
+                fn args(self, rt: &mut ::jsi::RuntimeHandle<'rt>) -> Vec<::jsi::JsiValue<'rt>> {
                     match self {
                         #(#event_args_mappers),*
                     }

@@ -276,8 +276,9 @@ unsafe impl<'rt> Send for SharedJsiHostObject<'rt> {}
 unsafe impl<'rt> Send for SharedJsiUserHostObject<'rt> {}
 
 /// Support trait to allow implementation of async functions via attribute
-/// macro.
-pub trait AsyncUserHostObject<'rt> {
+/// macro. Users must implement this for their host object type to provide an
+/// executor that drives `JsTaskCallback` futures.
+pub trait AsyncUserHostObject {
     fn spawn(task: JsTaskCallback);
 
     fn invoke(cb: CallInvokerCallback);

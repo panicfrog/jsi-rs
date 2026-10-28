@@ -174,7 +174,8 @@ impl Parse for HostObjectImpl {
                             };
 
                             if !(input_valid && output_valid) {
-                                emit_error!(it.sig.inputs, "getters should be fn(&self, rt: &mut RuntimeHandle) -> Result<T> where T: IntoValue");
+                                emit_error!(it.sig.inputs, "getters should be fn(&self, rt: &mut RuntimeHandle) -> Result<T> where T: IntoValue";
+                                    note = "if the return type mentions JsiValue, declare an explicit runtime lifetime: fn(&self, rt: &mut RuntimeHandle<'rt>) -> Result<JsiValue<'rt>>");
                                 continue;
                             }
 
@@ -213,7 +214,8 @@ impl Parse for HostObjectImpl {
                             };
 
                             if !(input_valid && output_valid) {
-                                emit_error!(it.sig.inputs, "setters should be fn(&self, rt: &mut RuntimeHandle, value: JsiValue) -> Result<()>");
+                                emit_error!(it.sig.inputs, "setters should be fn(&self, rt: &mut RuntimeHandle, value: JsiValue) -> Result<()>";
+                                    note = "the value type needs an explicit runtime lifetime: fn(&self, rt: &mut RuntimeHandle<'rt>, value: JsiValue<'rt>) -> Result<()>");
                                 continue;
                             }
 
@@ -246,7 +248,8 @@ impl Parse for HostObjectImpl {
                             };
 
                             if !(input_valid && output_valid) {
-                                emit_error!(it.sig.inputs, "methods should be fn(&self, rt: &mut RuntimeHandle, ...) -> Result<T>");
+                                emit_error!(it.sig.inputs, "methods should be fn(&self, rt: &mut RuntimeHandle, ...) -> Result<T>";
+                                    note = "the second argument must be the runtime handle; if any argument or the return type mentions JsiValue, declare an explicit runtime lifetime: fn(&self, rt: &mut RuntimeHandle<'rt>, value: JsiValue<'rt>) -> Result<JsiValue<'rt>>");
                                 continue;
                             }
 
@@ -332,7 +335,7 @@ impl Parse for HostObjectImpl {
 
             quote_spanned! {method_span=>
                 #js_setter_name => {
-                    self.#method_name(rt, anyhow::Context::context(jsi::FromValue::from_value(value, rt), "tried to set property to invalid value")?)?;
+                    self.#method_name(rt, ::anyhow::Context::context(::jsi::FromValue::from_value(value, rt), "tried to set property to invalid value")?)?;
                     Ok(())
                 }
             }
@@ -389,7 +392,7 @@ impl Parse for HostObjectImpl {
                             let resolve = ::std::sync::Arc::new(::std::sync::Mutex::new(resolve));
                             let reject = ::std::sync::Arc::new(::std::sync::Mutex::new(reject));
 
-                            splicer_js_api::spawn(Box::new(move |rt| Box::pin(async move {
+                            <Self as ::jsi::AsyncUserHostObject>::spawn(Box::new(move |rt| Box::pin(async move {
                                 let this = this;
                                 let this = this.get_inner::<Self>().unwrap();
                                 #trace
@@ -473,7 +476,7 @@ impl Parse for HostObjectImpl {
                 };
 
                 quote_spanned! {method_span=>
-                    let this = anyhow::Context::context(this.get_inner::<Self>(), "this is not bound correctly")?;
+                    let this = ::anyhow::Context::context(this.get_inner::<Self>(), "this is not bound correctly")?;
                     #trace
                     Ok(::jsi::IntoValue::into_value(this.#method_name(rt, #(#arg_names),*)?, rt))
                 }
@@ -489,12 +492,12 @@ impl Parse for HostObjectImpl {
                 #js_method_name => {
                     Ok(::jsi::IntoValue::into_value(
                             ::jsi::JsiFn::from_host_fn(
-                            &PropName::new(#js_method_name, rt),
+                            &::jsi::PropName::new(#js_method_name, rt),
                             #arg_count,
                             Box::new(move |this, args, rt| {
                                 let this: ::jsi::SharedJsiUserHostObject =
-                                    anyhow::Context::context(
-                                        ::jsi::FromValue::from_value(&this, rt), 
+                                    ::anyhow::Context::context(
+                                        ::jsi::FromValue::from_value(&this, rt),
                                         "this is not bound correctly"
                                     )?;
 
@@ -505,7 +508,7 @@ impl Parse for HostObjectImpl {
                                         Some(arg) => if let Some(arg) = ::jsi::FromValue::from_value(&arg, rt) {
                                             arg
                                         } else {
-                                            ::anyhow::bail!("argument {} could not be converted to {}", stringify!($arg_names), std::any::type_name::<#arg_types>())
+                                            ::anyhow::bail!("argument {} could not be converted to {}", stringify!(#arg_names), ::std::any::type_name::<#arg_types>())
                                         },
                                         None => {
                                             ::anyhow::bail!("not enough arguments")

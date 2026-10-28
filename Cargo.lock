@@ -177,7 +177,7 @@ dependencies = [
 
 [[package]]
 name = "jsi"
-version = "0.77.3"
+version = "0.88.1"
 dependencies = [
  "anyhow",
  "better_any",
@@ -191,7 +191,7 @@ dependencies = [
 
 [[package]]
 name = "jsi-demo-module"
-version = "0.77.3"
+version = "0.88.1"
 dependencies = [
  "anyhow",
  "cxx",
@@ -201,7 +201,7 @@ dependencies = [
 
 [[package]]
 name = "jsi-macros"
-version = "0.77.3"
+version = "0.88.1"
 dependencies = [
  "heck",
  "proc-macro-error2",
@@ -212,7 +212,7 @@ dependencies = [
 
 [[package]]
 name = "jsi-sys"
-version = "0.77.3"
+version = "0.88.1"
 dependencies = [
  "anyhow",
  "cxx",
@@ -222,7 +222,7 @@ dependencies = [
 
 [[package]]
 name = "jsi-tests"
-version = "0.77.3"
+version = "0.88.1"
 dependencies = [
  "anyhow",
  "cxx",

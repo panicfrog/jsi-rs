@@ -1,6 +1,6 @@
 [package]
 name = "jsi-tests"
-version = "0.77.3"
+version = "0.88.1"
 edition = "2021"
 rust-version = "1.74"
 links = "hermes"

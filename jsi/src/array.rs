@@ -19,7 +19,7 @@ impl<'rt> JsiArray<'rt> {
     }
 
     pub fn len(&self, rt: &mut RuntimeHandle<'rt>) -> usize {
-        self.0.length(rt.get_inner_mut())
+        sys::Array_length(&*self.0, rt.get_inner_mut())
     }
 
     pub fn get(&self, index: usize, rt: &mut RuntimeHandle<'rt>) -> JsiValue<'rt> {

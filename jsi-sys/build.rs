@@ -18,6 +18,8 @@ fn main() {
         rn_base.join("React/Base"),
         rn_base.join("ReactCommon/jsi"),
         rn_base.join("ReactCommon/callinvoker"),
+        // CallInvoker.h includes react/cxxstableapi/UmbrellaGuard.h (RN 0.88+)
+        rn_base.join("ReactCommon"),
         pkg_base.join("include"),
     ];
 

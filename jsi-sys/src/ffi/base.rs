@@ -131,16 +131,24 @@ pub mod ffi {
         ) -> UniquePtr<JsiObject>;
         #[namespace = "jsi_rs::ffi"]
         pub fn Object_compare(rt: Pin<&mut Runtime>, lhs: &JsiObject, rhs: &JsiObject) -> bool;
-        #[cxx_name = "instanceOf"]
-        pub fn instance_of(self: &JsiObject, rt: Pin<&mut Runtime>, ctor: &JsiFunction) -> bool;
+        #[namespace = "jsi_rs::ffi"]
+        pub fn Object_instanceOf(
+            _self: &JsiObject,
+            rt: Pin<&mut Runtime>,
+            ctor: &JsiFunction,
+        ) -> bool;
         #[namespace = "jsi_rs::ffi"]
         pub fn Object_getProperty(
             _self: &JsiObject,
             rt: Pin<&mut Runtime>,
             prop: &PropNameID,
         ) -> UniquePtr<JsiValue>;
-        #[cxx_name = "hasProperty"]
-        pub fn has_property(self: &JsiObject, rt: Pin<&mut Runtime>, prop: &PropNameID) -> bool;
+        #[namespace = "jsi_rs::ffi"]
+        pub fn Object_hasProperty(
+            _self: &JsiObject,
+            rt: Pin<&mut Runtime>,
+            prop: &PropNameID,
+        ) -> bool;
         #[namespace = "jsi_rs::ffi"]
         pub fn Object_setProperty(
             _self: Pin<&mut JsiObject>,
@@ -148,12 +156,12 @@ pub mod ffi {
             prop: &PropNameID,
             value: &JsiValue,
         );
-        #[cxx_name = "isArray"]
-        pub fn is_array(self: &JsiObject, rt: Pin<&mut Runtime>) -> bool;
-        #[cxx_name = "isArrayBuffer"]
-        pub fn is_array_buffer(self: &JsiObject, rt: Pin<&mut Runtime>) -> bool;
-        #[cxx_name = "isFunction"]
-        pub fn is_function(self: &JsiObject, rt: Pin<&mut Runtime>) -> bool;
+        #[namespace = "jsi_rs::ffi"]
+        pub fn Object_isArray(_self: &JsiObject, rt: Pin<&mut Runtime>) -> bool;
+        #[namespace = "jsi_rs::ffi"]
+        pub fn Object_isArrayBuffer(_self: &JsiObject, rt: Pin<&mut Runtime>) -> bool;
+        #[namespace = "jsi_rs::ffi"]
+        pub fn Object_isFunction(_self: &JsiObject, rt: Pin<&mut Runtime>) -> bool;
         // TODO: isHostObject after implementing Rust HostObject subclass
         #[namespace = "jsi_rs::ffi"]
         pub fn Object_asArray(
@@ -214,12 +222,18 @@ pub mod ffi {
             index: usize,
             value: &JsiValue,
         );
-        pub fn length(self: &JsiArray, rt: Pin<&mut Runtime>) -> usize;
+        #[namespace = "jsi_rs::ffi"]
+        pub fn Array_length(_self: &JsiArray, rt: Pin<&mut Runtime>) -> usize;
 
         #[cxx_name = "ArrayBuffer"]
         pub type JsiArrayBuffer;
-        pub unsafe fn data(self: &JsiArrayBuffer, rt: Pin<&mut Runtime>) -> *mut u8;
-        pub fn length(self: &JsiArrayBuffer, rt: Pin<&mut Runtime>) -> usize;
+        #[namespace = "jsi_rs::ffi"]
+        pub unsafe fn ArrayBuffer_data(
+            _self: &JsiArrayBuffer,
+            rt: Pin<&mut Runtime>,
+        ) -> *mut u8;
+        #[namespace = "jsi_rs::ffi"]
+        pub fn ArrayBuffer_length(_self: &JsiArrayBuffer, rt: Pin<&mut Runtime>) -> usize;
 
         #[cxx_name = "Function"]
         pub type JsiFunction;
@@ -249,8 +263,8 @@ pub mod ffi {
             param_count: u32,
             closure: *mut c_void,
         ) -> UniquePtr<JsiFunction>;
-        #[cxx_name = "isHostFunction"]
-        pub fn is_host_fn(self: &JsiFunction, rt: Pin<&mut Runtime>) -> bool;
+        #[namespace = "jsi_rs::ffi"]
+        pub fn Function_isHostFunction(_self: &JsiFunction, rt: Pin<&mut Runtime>) -> bool;
 
         #[cxx_name = "Value"]
         pub type JsiValue;

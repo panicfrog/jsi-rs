@@ -14,8 +14,8 @@ impl<'rt> JsiArrayBuffer<'rt> {
     pub fn data(&self, rt: &mut RuntimeHandle<'rt>) -> &mut [u8] {
         unsafe {
             std::slice::from_raw_parts_mut(
-                self.0.data(rt.get_inner_mut()),
-                self.0.length(rt.get_inner_mut()),
+                sys::ArrayBuffer_data(&*self.0, rt.get_inner_mut()),
+                sys::ArrayBuffer_length(&*self.0, rt.get_inner_mut()),
             )
         }
     }

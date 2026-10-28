@@ -59,22 +59,46 @@ fn main() {
         .files(compiles)
         .compile("js-tests");
 
-    let hermes_lib_dir = pkg_base.join("../vendor/hermes/build/API/hermes/");
+    let hermes_api_dir = pkg_base.join("../vendor/hermes/build/API/hermes/");
+    let _hermes_lib_dir = pkg_base.join("../vendor/hermes/build/lib/");
 
-    // on macOS, hermes builds as a .framework bundle, so it must be linked and
-    // found via -framework; on other platforms it's a plain shared library
-    if hermes_lib_dir.join("hermes.framework").is_dir() {
+    if hermes_api_dir.join("hermes.framework").is_dir() {
+        // hermes up to RN 0.77: a single .framework bundle on macOS
         println!(
             "cargo:rustc-link-search=framework={}",
-            hermes_lib_dir.to_string_lossy()
+            hermes_api_dir.to_string_lossy()
         );
         println!("cargo:rustc-link-lib=framework=hermes");
+        println!(
+            "cargo:rustc-link-arg=-Wl,-rpath,{}",
+            hermes_api_dir.to_string_lossy()
+        );
+    } else if hermes_api_dir.join("libhermesapi.a").is_file() {
+        // hermes from RN 0.88 builds static libraries only; mirror the link
+        // line of the hermes CLI itself (see `ninja -t commands hermes`),
+        // minus napi and hermes' own jsi (jsi-sys provides those symbols)
+        let build_dir = pkg_base.join("../vendor/hermes/build/");
+        for dir in [
+            &hermes_api_dir,
+            &build_dir.join("lib/"),
+            &build_dir.join("lib/VM/"),
+            &build_dir.join("public/hermes/Public/"),
+            &build_dir.join("external/boost/boost_1_86_0/libs/context/"),
+        ] {
+            println!("cargo:rustc-link-search=native={}", dir.to_string_lossy());
+        }
+        println!("cargo:rustc-link-lib=static=hermesvm_a");
+        println!("cargo:rustc-link-lib=static=hermesVMRuntime");
+        println!("cargo:rustc-link-lib=static=hermesapi");
+        println!("cargo:rustc-link-lib=static=hermesPublic");
+        println!("cargo:rustc-link-lib=static=boost_context");
+        println!("cargo:rustc-link-lib=framework=CoreFoundation");
     } else {
+        // other platforms: plain shared library
         println!("cargo:rustc-link-lib=hermes");
-        println!("cargo:rustc-link-search={}", hermes_lib_dir.to_string_lossy());
+        println!(
+            "cargo:rustc-link-search={}",
+            hermes_api_dir.to_string_lossy()
+        );
     }
-
-    // the framework's install name is @rpath/..., so give test binaries an
-    // rpath pointing at the hermes build output
-    println!("cargo:rustc-link-arg=-Wl,-rpath,{}", hermes_lib_dir.to_string_lossy());
 }

@@ -1,6 +1,12 @@
 // A wrapper header b/c a bunch of JSI functions return opaque C++ types
 // directly and autocxx currently isn't able to handle these headers b/c of
 // stuff like nested protected structs
+//
+// NOTE: all jsi methods are called directly instead of through
+// member-pointer casts. This keeps the file compatible with every jsi.h
+// version from 0.73 to 0.88+: the convenience methods on Object/Function/
+// Value etc. take `Runtime&` in older versions and `IRuntime&` in 0.88+,
+// and a `Runtime&` argument converts to `IRuntime&` implicitly.
 
 #ifndef JSI_WRAPPER_H
 #define JSI_WRAPPER_H
@@ -46,10 +52,7 @@ using c_void = void;
     ::facebook::jsi::HostObject &self, Runtime &rt, const PropNameID &name
 ) noexcept
 {
-  Value (::facebook::jsi::HostObject::*data$)(
-      facebook::jsi::Runtime &, const facebook::jsi::PropNameID &name
-  ) = &::facebook::jsi::HostObject::get;
-  auto value = (self.*data$)(rt, name);
+  auto value = self.get(rt, name);
   return ::std::make_unique<Value>(std::move(value));
 }
 
@@ -57,10 +60,7 @@ using c_void = void;
     ::facebook::jsi::HostObject &self, Runtime &rt
 ) noexcept
 {
-  std::vector<PropNameID> (::facebook::jsi::HostObject::*
-                               data$)(facebook::jsi::Runtime &) =
-      &::facebook::jsi::HostObject::getPropertyNames;
-  auto value = (self.*data$)(rt);
+  auto value = self.getPropertyNames(rt);
   return ::std::unique_ptr<std::vector<PropNameID>>(&value);
 }
 
@@ -78,10 +78,7 @@ PreparedJavaScript_asConst(const ::std::shared_ptr<PreparedJavaScript> &js
     rust::Str sourceURL
 ) noexcept
 {
-  Value (::facebook::jsi::Runtime::*data$)(
-      const std::shared_ptr<const Buffer> &buffer, const std::string &sourceURL
-  ) = &::facebook::jsi::Runtime::evaluateJavaScript;
-  auto value = (self.*data$)(buffer, std::string(sourceURL));
+  auto value = self.evaluateJavaScript(buffer, std::string(sourceURL));
   return ::std::make_unique<Value>(std::move(value));
 }
 
@@ -90,10 +87,7 @@ PreparedJavaScript_asConst(const ::std::shared_ptr<PreparedJavaScript> &js
     rust::Str sourceURL
 ) noexcept
 {
-  std::shared_ptr<ConstPreparedJavaScript> (::facebook::jsi::Runtime::*data$)(
-      const std::shared_ptr<const Buffer> &buffer, const std::string sourceURL
-  ) = &::facebook::jsi::Runtime::prepareJavaScript;
-  return (self.*data$)(buffer, std::string(sourceURL));
+  return self.prepareJavaScript(buffer, std::string(sourceURL));
 }
 
 ::std::unique_ptr<Value> Runtime_evaluatePreparedJavaScript(
@@ -101,27 +95,21 @@ PreparedJavaScript_asConst(const ::std::shared_ptr<PreparedJavaScript> &js
     const ::std::shared_ptr<ConstPreparedJavaScript> &js
 ) noexcept
 {
-  Value (::facebook::jsi::Runtime::*
-             data$)(const ::std::shared_ptr<ConstPreparedJavaScript> &) =
-      &::facebook::jsi::Runtime::evaluatePreparedJavaScript;
-  auto value = (self.*data$)(::std::shared_ptr<ConstPreparedJavaScript>(js));
+  auto value = self.evaluatePreparedJavaScript(js);
   return ::std::make_unique<Value>(std::move(value));
 }
 
 ::std::unique_ptr<Object> Runtime_global(::facebook::jsi::Runtime &self
 ) noexcept
 {
-  Object (::facebook::jsi::Runtime::*fp)() = &::facebook::jsi::Runtime::global;
-  auto value = (self.*fp)();
+  auto value = self.global();
   return ::std::make_unique<Object>(std::move(value));
 }
 
 ::std::unique_ptr<std::string>
 Runtime_description(::facebook::jsi::Runtime &self) noexcept
 {
-  std::string (::facebook::jsi::Runtime::*fp)() =
-      &::facebook::jsi::Runtime::description;
-  auto value = (self.*fp)();
+  auto value = self.description();
   return ::std::make_unique<std::string>(std::move(value));
 }
 
@@ -145,10 +133,8 @@ PropNameID_forString(Runtime &rt, const String &str) noexcept
 ::std::unique_ptr<std::string>
 PropNameID_toUtf8(const PropNameID &self, Runtime &rt) noexcept
 {
-  std::string (::facebook::jsi::PropNameID::*fp)(Runtime &rt) const =
-      &::facebook::jsi::PropNameID::utf8;
-  auto value = (self.*fp)(rt);
-  return std::make_unique<std::string>(std::move(value));
+  auto value = self.utf8(rt);
+  return ::std::make_unique<std::string>(std::move(value));
 }
 
 bool PropNameID_compare(
@@ -169,10 +155,8 @@ std::unique_ptr<PropNameID> PropNameID_copy(const PropNameID &self, Runtime &rt)
 ::std::unique_ptr<std::string>
 Symbol_toString(const Symbol &self, Runtime &rt) noexcept
 {
-  std::string (::facebook::jsi::Symbol::*fp)(Runtime &rt) const =
-      &::facebook::jsi::Symbol::toString;
-  auto value = (self.*fp)(rt);
-  return std::make_unique<std::string>(std::move(value));
+  auto value = self.toString(rt);
+  return ::std::make_unique<std::string>(std::move(value));
 }
 
 bool Symbol_compare(
@@ -194,10 +178,8 @@ bool Symbol_compare(
 ::std::unique_ptr<std::string>
 String_toString(const String &self, Runtime &rt) noexcept
 {
-  std::string (::facebook::jsi::String::*fp)(Runtime &rt) const =
-      &::facebook::jsi::String::utf8;
-  auto value = (self.*fp)(rt);
-  return std::make_unique<std::string>(std::move(value));
+  auto value = self.utf8(rt);
+  return ::std::make_unique<std::string>(std::move(value));
 }
 
 bool String_compare(
@@ -242,9 +224,7 @@ std::unique_ptr<Value> Object_getProperty(
     const Object &self, Runtime &rt, const PropNameID &name
 ) noexcept
 {
-  Value (::facebook::jsi::Object::*fp)(Runtime &, const PropNameID &) const =
-      &::facebook::jsi::Object::getProperty;
-  auto value = (self.*fp)(rt, name);
+  auto value = self.getProperty(rt, name);
   return std::make_unique<Value>(std::move(value));
 }
 
@@ -252,49 +232,61 @@ void Object_setProperty(
     Object &self, Runtime &rt, const PropNameID &name, Value const &value
 ) noexcept
 {
-  void (::facebook::jsi::Object::*
-            fp)(Runtime &, const PropNameID &, Value const &) const =
-      &::facebook::jsi::Object::setProperty;
-  (self.*fp)(rt, name, value);
+  self.setProperty(rt, name, value);
 }
 
 std::unique_ptr<Array> Object_asArray(Object const &self, Runtime &rt)
 {
-  Array (::facebook::jsi::Object::*fp)(Runtime &) const & =
-      &::facebook::jsi::Object::asArray;
-  auto val = (self.*fp)(rt);
+  auto val = self.asArray(rt);
   return std::make_unique<Array>(std::move(val));
 }
 
 std::unique_ptr<ArrayBuffer>
 Object_asArrayBuffer(Object const &self, Runtime &rt)
 {
-  ArrayBuffer (::facebook::jsi::Object::*fp)(Runtime &) const & =
-      &::facebook::jsi::Object::getArrayBuffer;
-  auto val = (self.*fp)(rt);
+  auto val = self.getArrayBuffer(rt);
   return std::make_unique<ArrayBuffer>(std::move(val));
 }
 
 std::unique_ptr<Function> Object_asFunction(Object const &self, Runtime &rt)
 {
-  Function (::facebook::jsi::Object::*fp)(Runtime &) const & =
-      &::facebook::jsi::Object::asFunction;
-  auto val = (self.*fp)(rt);
+  auto val = self.asFunction(rt);
   return std::make_unique<Function>(std::move(val));
 }
 
 std::shared_ptr<HostObject> Object_asHostObject(Object const &self, Runtime &rt)
 {
-  std::shared_ptr<HostObject> (::facebook::jsi::Object::*fp)(Runtime &) const =
-      &::facebook::jsi::Object::asHostObject;
-  return (self.*fp)(rt);
+  return self.asHostObject(rt);
+}
+
+bool Object_instanceOf(Object const &self, Runtime &rt, Function const &ctor)
+{
+  return self.instanceOf(rt, ctor);
+}
+
+bool Object_hasProperty(Object const &self, Runtime &rt, const PropNameID &name)
+{
+  return self.hasProperty(rt, name);
+}
+
+bool Object_isArray(Object const &self, Runtime &rt)
+{
+  return self.isArray(rt);
+}
+
+bool Object_isArrayBuffer(Object const &self, Runtime &rt)
+{
+  return self.isArrayBuffer(rt);
+}
+
+bool Object_isFunction(Object const &self, Runtime &rt)
+{
+  return self.isFunction(rt);
 }
 
 std::unique_ptr<Array> Object_getPropertyNames(Object &self, Runtime &rt)
 {
-  Array (::facebook::jsi::Object::*fp)(Runtime &) const =
-      &::facebook::jsi::Object::getPropertyNames;
-  auto val = (self.*fp)(rt);
+  auto val = self.getPropertyNames(rt);
   return std::make_unique<Array>(std::move(val));
 }
 
@@ -308,9 +300,7 @@ WeakObject_fromObject(Runtime &rt, Object const &object)
 
 std::unique_ptr<Value> WeakObject_lock(WeakObject &self, Runtime &rt)
 {
-  Value (::facebook::jsi::WeakObject::*fp)(Runtime &) const =
-      &::facebook::jsi::WeakObject::lock;
-  auto val = (self.*fp)(rt);
+  auto val = self.lock(rt);
   return std::make_unique<Value>(std::move(val));
 }
 
@@ -323,19 +313,33 @@ std::unique_ptr<Array> Array_createWithLength(Runtime &rt, size_t length)
 
 std::unique_ptr<Value> Array_get(Array const &self, Runtime &rt, size_t index)
 {
-  Value (::facebook::jsi::Array::*fp)(Runtime &, size_t) const =
-      &::facebook::jsi::Array::getValueAtIndex;
-  auto val = (self.*fp)(rt, index);
+  auto val = self.getValueAtIndex(rt, index);
   return std::make_unique<Value>(std::move(val));
 }
 
 void Array_set(Array &self, Runtime &rt, size_t index, Value const &value)
 {
-  void (::facebook::jsi::Array::*fp)(Runtime &, size_t, Value const &) const =
-      &::facebook::jsi::Array::setValueAtIndex;
-  // NOTE: pass `value` by reference here; `&value` would go through Value's
-  // implicit `Value(bool)` constructor and always store `true`
-  (self.*fp)(rt, index, value);
+  self.setValueAtIndex(rt, index, value);
+}
+
+size_t Array_length(Array const &self, Runtime &rt)
+{
+  return self.length(rt);
+}
+
+size_t ArrayBuffer_length(ArrayBuffer const &self, Runtime &rt)
+{
+  return self.length(rt);
+}
+
+uint8_t *ArrayBuffer_data(ArrayBuffer const &self, Runtime &rt)
+{
+  return self.data(rt);
+}
+
+bool Function_isHostFunction(Function const &self, Runtime &rt)
+{
+  return self.isHostFunction(rt);
 }
 
 // Function
@@ -343,9 +347,7 @@ void Array_set(Array &self, Runtime &rt, size_t index, Value const &value)
 std::unique_ptr<Value>
 Function_call(Function const &self, Runtime &rt, std::vector<Value> const &args)
 {
-  Value (::facebook::jsi::Function::*fp)(Runtime &, Value const *, size_t)
-      const = &::facebook::jsi::Function::call;
-  auto value = (self.*fp)(rt, args.data(), args.size());
+  auto value = self.call(rt, args.data(), args.size());
   return std::make_unique<Value>(std::move(value));
 }
 
@@ -354,10 +356,7 @@ std::unique_ptr<Value> Function_callWithThis(
     std::vector<Value> const &args
 )
 {
-  Value (::facebook::jsi::Function::*fp)(
-      Runtime &, Object const &, Value const *, size_t
-  ) const = &::facebook::jsi::Function::callWithThis;
-  auto value = (self.*fp)(rt, thisObj, args.data(), args.size());
+  auto value = self.callWithThis(rt, thisObj, args.data(), args.size());
   return std::make_unique<Value>(std::move(value));
 }
 
@@ -365,9 +364,7 @@ std::unique_ptr<Value> Function_callAsConstructor(
     Function const &self, Runtime &rt, std::vector<Value> const &args
 )
 {
-  Value (::facebook::jsi::Function::*fp)(Runtime &, Value const *, size_t)
-      const = &::facebook::jsi::Function::callAsConstructor;
-  auto value = (self.*fp)(rt, args.data(), args.size());
+  auto value = self.callAsConstructor(rt, args.data(), args.size());
   return std::make_unique<Value>(std::move(value));
 }
 
@@ -466,33 +463,25 @@ bool Value_compare(Runtime &rt, const Value &self, const Value &other) noexcept
 
 std::unique_ptr<String> Value_asString(const Value &self, Runtime &rt)
 {
-  String (::facebook::jsi::Value::*fp)(Runtime &) const & =
-      &::facebook::jsi::Value::asString;
-  auto val = (self.*fp)(rt);
+  auto val = self.asString(rt);
   return std::make_unique<String>(std::move(val));
 }
 
 std::unique_ptr<Symbol> Value_asSymbol(const Value &self, Runtime &rt)
 {
-  Symbol (::facebook::jsi::Value::*fp)(Runtime &) const & =
-      &::facebook::jsi::Value::asSymbol;
-  auto val = (self.*fp)(rt);
+  auto val = self.asSymbol(rt);
   return std::make_unique<Symbol>(std::move(val));
 }
 
 std::unique_ptr<Object> Value_asObject(const Value &self, Runtime &rt)
 {
-  Object (::facebook::jsi::Value::*fp)(Runtime &) const & =
-      &::facebook::jsi::Value::asObject;
-  auto val = (self.*fp)(rt);
+  auto val = self.asObject(rt);
   return std::make_unique<Object>(std::move(val));
 }
 
 std::unique_ptr<String> Value_toString(const Value &self, Runtime &rt)
 {
-  String (::facebook::jsi::Value::*fp)(Runtime &) const =
-      &::facebook::jsi::Value::toString;
-  auto val = (self.*fp)(rt);
+  auto val = self.toString(rt);
   return std::make_unique<String>(std::move(val));
 }
 
