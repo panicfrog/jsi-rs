@@ -1,103 +1,66 @@
 /**
- * Sample React Native App
- * https://github.com/facebook/react-native
+ * jsi-rs demo app
+ *
+ * The Rust module (native/jsi-demo-module) installs a `RustDemo` host object
+ * into the JS global scope via JSI. Everything below calls into Rust.
  *
  * @format
  */
 
 import React from 'react';
-import type {PropsWithChildren} from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-  NativeModules,
-} from 'react-native';
+import {NativeModules, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View} from 'react-native';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-// call our Rust module
-const {ExampleJsiModule} = NativeModules;
-ExampleJsiModule.install();
-
-// call our global object injected by Rust
-console.log('the current time is: ' + ExampleGlobal.time());
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
+declare global {
+  var RustDemo: {
+    add(a: number, b: number): number;
+    greet(name: string): string;
+    sumList(nums: number[]): number;
+    makePoint(x: number, y: number, label: string): {x: number; y: number; label: string};
+    pointMagnitude(p: {x: number; y: number}): number;
+    readonly version: string;
+  };
 }
 
-function App(): JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+// install the Rust module into the JSI runtime (synchronous, runs once)
+NativeModules.JsiDemoModule?.install();
+
+const results: Array<[string, string]> = (() => {
+  const out: Array<[string, string]> = [];
+
+  out.push(['RustDemo.version', RustDemo.version]);
+  out.push(['RustDemo.add(19, 23)', String(RustDemo.add(19, 23))]);
+  out.push(['RustDemo.greet("jsi-rs")', RustDemo.greet('jsi-rs')]);
+  out.push(['RustDemo.sumList([1..100])', String(RustDemo.sumList(Array.from({length: 100}, (_, i) => i + 1)))]);
+
+  const p = RustDemo.makePoint(3, 4, 'demo point');
+  out.push(['RustDemo.makePoint(3, 4, ...)', JSON.stringify(p)]);
+  out.push(['RustDemo.pointMagnitude(p)', String(RustDemo.pointMagnitude(p))]);
+
+  return out;
+})();
+
+function App(): React.JSX.Element {
+  const isDarkMode = false;
 
   const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+    backgroundColor: isDarkMode ? '#111' : '#fff',
   };
 
   return (
     <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+      <StatusBar barStyle="dark-content" />
+      <ScrollView contentInsetAdjustmentBehavior="automatic" style={backgroundStyle}>
+        <View style={styles.container}>
+          <Text style={styles.title}>jsi-rs demo</Text>
+          <Text style={styles.subtitle}>
+            Every value below was computed in Rust via JSI (React Native 0.77.3 + Hermes)
+          </Text>
+          {results.map(([label, value]) => (
+            <View key={label} style={styles.row}>
+              <Text style={styles.label}>{label}</Text>
+              <Text style={styles.value}>{value}</Text>
+            </View>
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -105,21 +68,40 @@ function App(): JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  container: {
+    padding: 24,
+    gap: 8,
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
+  title: {
+    fontSize: 28,
     fontWeight: '700',
+    marginBottom: 4,
+    color: '#000',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#ddd',
+    gap: 12,
+  },
+  label: {
+    fontSize: 14,
+    color: '#333',
+    flexShrink: 1,
+  },
+  value: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0a7',
+    flexShrink: 1,
+    textAlign: 'right',
   },
 });
 
