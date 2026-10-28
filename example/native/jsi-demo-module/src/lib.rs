@@ -1,10 +1,16 @@
 //! A demo native module for React Native, written in Rust with jsi-rs.
 //!
-//! This is a realistic example of what a user-facing jsi-rs library looks
-//! like: it installs a `RustDemo` host object into the JS global scope,
-//! exposing methods, getters and serde-backed struct conversion.
+//! Two generations coexist here on purpose:
+//! - `RustDemo`: a legacy `#[host_object]` global installed by
+//!   `jsi_demo_install` (the original jsi-rs pattern, kept as a regression
+//!   example)
+//! - `TurboDemo`: a `#[RustTurboModule]` module, auto-registered into the
+//!   linkme slice and lazily served by `globalThis.RustTurbo.get(...)`,
+//!   with TypeScript bindings generated at compile time under
+//!   `generated/rust-turbo/`
 
-use jsi::{host_object, IntoValue, PropName, RuntimeHandle};
+use jsi::{host_object, RuntimeHandle};
+use jsi_turbo::{RustTurboModule, TurboStruct};
 use serde::{Deserialize, Serialize};
 
 /// Installs the `RustDemo` host object into the JS global scope of the given
@@ -23,8 +29,8 @@ pub extern "C" fn jsi_demo_install(runtime: *mut jsi::sys::Runtime) -> bool {
     };
 
     rt.global().set(
-        PropName::new("RustDemo", &mut rt),
-        &demo.into_value(&mut rt),
+        jsi::PropName::new("RustDemo", &mut rt),
+        &jsi::IntoValue::into_value(demo, &mut rt),
         &mut rt,
     );
 
@@ -32,7 +38,9 @@ pub extern "C" fn jsi_demo_install(runtime: *mut jsi::sys::Runtime) -> bool {
 }
 
 /// A struct that crosses the JSI boundary in both directions via serde.
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+/// `TurboStruct` additionally generates FromValue/IntoValue impls and a TS
+/// interface (`generated/rust-turbo/structs/Point.ts`).
+#[derive(Serialize, Deserialize, TurboStruct, PartialEq, Debug)]
 pub struct Point {
     pub x: f64,
     pub y: f64,
@@ -88,5 +96,49 @@ impl RustDemo {
     #[host_object(getter)]
     pub fn get_version(&self, _rt: &mut RuntimeHandle) -> anyhow::Result<String> {
         Ok(self.version.clone())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The TurboModule generation: one attribute is the whole spec — the method
+// table, linkme registration, force anchor and TypeScript bindings are all
+// generated from this impl block.
+
+#[derive(Default)]
+pub struct TurboDemo;
+
+#[RustTurboModule("TurboDemo")]
+impl TurboDemo {
+    pub fn add(&self, _rt: &mut RuntimeHandle, a: f64, b: f64) -> anyhow::Result<f64> {
+        Ok(a + b)
+    }
+
+    pub fn greet(&self, name: String) -> anyhow::Result<String> {
+        Ok(format!("Hello, {name}, from Rust TurboModule!"))
+    }
+
+    pub fn sum_list(&self, nums: Vec<f64>) -> anyhow::Result<f64> {
+        Ok(nums.iter().sum())
+    }
+
+    /// Returns a typed struct; JS receives a plain object and the generated
+    /// TS bindings type it as `Point`.
+    pub fn make_point(&self, label: String, x: f64, y: f64) -> anyhow::Result<Point> {
+        Ok(Point { x, y, label })
+    }
+
+    pub fn point_magnitude(&self, p: Point) -> anyhow::Result<f64> {
+        Ok((p.x * p.x + p.y * p.y).sqrt())
+    }
+
+    /// Async methods are exposed as JS Promises; the body runs on the
+    /// jsi-turbo worker pool and resolution hops back to the JS thread.
+    pub async fn slow_add(&self, a: f64, b: f64) -> anyhow::Result<f64> {
+        Ok(a + b)
+    }
+
+    #[turbo(getter)]
+    pub fn get_version(&self) -> anyhow::Result<String> {
+        Ok(env!("CARGO_PKG_VERSION").into())
     }
 }

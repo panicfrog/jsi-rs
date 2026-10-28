@@ -6,6 +6,7 @@ members = [
   "jsi",
   "jsi-turbo",
   "jsi-turbo-macros",
-  "example/native/jsi-demo-module"
+  "example/native/jsi-demo-module",
+  "example/native/rust-app"
 ]
 resolver = "2"

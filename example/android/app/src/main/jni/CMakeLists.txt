@@ -7,12 +7,12 @@ project(appmodules)
 
 include(${REACT_ANDROID_DIR}/cmake-utils/ReactNative-application.cmake)
 
-# The Rust module, built by `cargo ndk` into jniLibs (see example/README.md).
-# It has no SONAME, so IMPORTED_NO_SONAME makes the linker record it as
-# `libjsi_demo_module.so` instead of a build machine path.
-add_library(jsi_demo_module SHARED IMPORTED)
-set_target_properties(jsi_demo_module PROPERTIES
-  IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}/libjsi_demo_module.so
-  IMPORTED_NO_SONAME TRUE)
+# The Rust aggregate library (every Rust module + the jsi-turbo runtime + the
+# cxx bridge C++ side), built by `cargo ndk ... build -p rust-app` (see
+# example/README.md). Same model as iOS: the platform linker pulls in the
+# archive members the glue references.
+add_library(rust_app STATIC IMPORTED)
+set_target_properties(rust_app PROPERTIES
+  IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../rust/${ANDROID_ABI}/librust_app.a)
 
-target_link_libraries(${CMAKE_PROJECT_NAME} jsi_demo_module)
+target_link_libraries(${CMAKE_PROJECT_NAME} rust_app)

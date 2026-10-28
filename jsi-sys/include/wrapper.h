@@ -49,7 +49,7 @@ using c_void = void;
 
 // HostObject
 
-::std::unique_ptr<Value> HostObject_get(
+inline ::std::unique_ptr<Value> HostObject_get(
     ::facebook::jsi::HostObject &self, Runtime &rt, const PropNameID &name
 ) noexcept
 {
@@ -57,7 +57,7 @@ using c_void = void;
   return ::std::make_unique<Value>(std::move(value));
 }
 
-::std::unique_ptr<std::vector<PropNameID>> HostObject_getPropertyNames(
+inline ::std::unique_ptr<std::vector<PropNameID>> HostObject_getPropertyNames(
     ::facebook::jsi::HostObject &self, Runtime &rt
 ) noexcept
 {
@@ -68,13 +68,13 @@ using c_void = void;
 // Runtime
 
 ::std::shared_ptr<ConstPreparedJavaScript>
-PreparedJavaScript_asConst(const ::std::shared_ptr<PreparedJavaScript> &js
+inline PreparedJavaScript_asConst(const ::std::shared_ptr<PreparedJavaScript> &js
 ) noexcept
 {
   return ::std::shared_ptr<ConstPreparedJavaScript>(js);
 }
 
-::std::unique_ptr<Value> Runtime_evaluateJavaScript(
+inline ::std::unique_ptr<Value> Runtime_evaluateJavaScript(
     ::facebook::jsi::Runtime &self, const std::shared_ptr<Buffer> &buffer,
     rust::Str sourceURL
 ) noexcept
@@ -83,7 +83,7 @@ PreparedJavaScript_asConst(const ::std::shared_ptr<PreparedJavaScript> &js
   return ::std::make_unique<Value>(std::move(value));
 }
 
-::std::shared_ptr<ConstPreparedJavaScript> Runtime_prepareJavaScript(
+inline ::std::shared_ptr<ConstPreparedJavaScript> Runtime_prepareJavaScript(
     ::facebook::jsi::Runtime &self, const std::shared_ptr<Buffer> &buffer,
     rust::Str sourceURL
 ) noexcept
@@ -91,7 +91,7 @@ PreparedJavaScript_asConst(const ::std::shared_ptr<PreparedJavaScript> &js
   return self.prepareJavaScript(buffer, std::string(sourceURL));
 }
 
-::std::unique_ptr<Value> Runtime_evaluatePreparedJavaScript(
+inline ::std::unique_ptr<Value> Runtime_evaluatePreparedJavaScript(
     ::facebook::jsi::Runtime &self,
     const ::std::shared_ptr<ConstPreparedJavaScript> &js
 ) noexcept
@@ -100,7 +100,7 @@ PreparedJavaScript_asConst(const ::std::shared_ptr<PreparedJavaScript> &js
   return ::std::make_unique<Value>(std::move(value));
 }
 
-::std::unique_ptr<Object> Runtime_global(::facebook::jsi::Runtime &self
+inline ::std::unique_ptr<Object> Runtime_global(::facebook::jsi::Runtime &self
 ) noexcept
 {
   auto value = self.global();
@@ -108,7 +108,7 @@ PreparedJavaScript_asConst(const ::std::shared_ptr<PreparedJavaScript> &js
 }
 
 ::std::unique_ptr<std::string>
-Runtime_description(::facebook::jsi::Runtime &self) noexcept
+inline Runtime_description(::facebook::jsi::Runtime &self) noexcept
 {
   auto value = self.description();
   return ::std::make_unique<std::string>(std::move(value));
@@ -117,7 +117,7 @@ Runtime_description(::facebook::jsi::Runtime &self) noexcept
 // PropNameID
 
 ::std::unique_ptr<PropNameID>
-PropNameID_forUtf8(Runtime &rt, rust::Str str) noexcept
+inline PropNameID_forUtf8(Runtime &rt, rust::Str str) noexcept
 {
   auto value =
       PropNameID::forUtf8(rt, (const uint8_t *)str.data(), str.length());
@@ -125,27 +125,27 @@ PropNameID_forUtf8(Runtime &rt, rust::Str str) noexcept
 }
 
 ::std::unique_ptr<PropNameID>
-PropNameID_forString(Runtime &rt, const String &str) noexcept
+inline PropNameID_forString(Runtime &rt, const String &str) noexcept
 {
   auto value = PropNameID::forString(rt, str);
   return std::make_unique<PropNameID>(std::move(value));
 }
 
 ::std::unique_ptr<std::string>
-PropNameID_toUtf8(const PropNameID &self, Runtime &rt) noexcept
+inline PropNameID_toUtf8(const PropNameID &self, Runtime &rt) noexcept
 {
   auto value = self.utf8(rt);
   return ::std::make_unique<std::string>(std::move(value));
 }
 
-bool PropNameID_compare(
+inline bool PropNameID_compare(
     Runtime &rt, const PropNameID &self, const PropNameID &other
 ) noexcept
 {
   return PropNameID::compare(rt, self, other);
 }
 
-std::unique_ptr<PropNameID> PropNameID_copy(const PropNameID &self, Runtime &rt)
+inline std::unique_ptr<PropNameID> PropNameID_copy(const PropNameID &self, Runtime &rt)
 {
   auto val = PropNameID(rt, self);
   return std::make_unique<PropNameID>(std::move(val));
@@ -154,13 +154,13 @@ std::unique_ptr<PropNameID> PropNameID_copy(const PropNameID &self, Runtime &rt)
 // Symbol
 
 ::std::unique_ptr<std::string>
-Symbol_toString(const Symbol &self, Runtime &rt) noexcept
+inline Symbol_toString(const Symbol &self, Runtime &rt) noexcept
 {
   auto value = self.toString(rt);
   return ::std::make_unique<std::string>(std::move(value));
 }
 
-bool Symbol_compare(
+inline bool Symbol_compare(
     Runtime &rt, const Symbol &self, const Symbol &other
 ) noexcept
 {
@@ -169,7 +169,7 @@ bool Symbol_compare(
 
 // String
 
-::std::unique_ptr<String> String_fromUtf8(Runtime &rt, rust::Str str) noexcept
+inline ::std::unique_ptr<String> String_fromUtf8(Runtime &rt, rust::Str str) noexcept
 {
   auto value =
       String::createFromUtf8(rt, (const uint8_t *)str.data(), str.length());
@@ -177,13 +177,13 @@ bool Symbol_compare(
 }
 
 ::std::unique_ptr<std::string>
-String_toString(const String &self, Runtime &rt) noexcept
+inline String_toString(const String &self, Runtime &rt) noexcept
 {
   auto value = self.utf8(rt);
   return ::std::make_unique<std::string>(std::move(value));
 }
 
-bool String_compare(
+inline bool String_compare(
     Runtime &rt, const String &self, const String &other
 ) noexcept
 {
@@ -192,12 +192,12 @@ bool String_compare(
 
 // Object
 
-::std::unique_ptr<Object> Object_create(Runtime &rt) noexcept
+inline ::std::unique_ptr<Object> Object_create(Runtime &rt) noexcept
 {
   return std::make_unique<Object>(rt);
 }
 
-::std::unique_ptr<Object> Object_createFromHostObjectShared(
+inline ::std::unique_ptr<Object> Object_createFromHostObjectShared(
     Runtime &rt, std::shared_ptr<HostObject> ho
 ) noexcept
 {
@@ -205,7 +205,7 @@ bool String_compare(
   return std::make_unique<Object>(std::move(value));
 }
 
-::std::unique_ptr<Object> Object_createFromHostObjectUnique(
+inline ::std::unique_ptr<Object> Object_createFromHostObjectUnique(
     Runtime &rt, std::unique_ptr<HostObject> ho
 ) noexcept
 {
@@ -214,14 +214,14 @@ bool String_compare(
   return std::make_unique<Object>(std::move(value));
 }
 
-bool Object_compare(
+inline bool Object_compare(
     Runtime &rt, const Object &self, const Object &other
 ) noexcept
 {
   return Object::strictEquals(rt, self, other);
 }
 
-std::unique_ptr<Value> Object_getProperty(
+inline std::unique_ptr<Value> Object_getProperty(
     const Object &self, Runtime &rt, const PropNameID &name
 ) noexcept
 {
@@ -229,62 +229,62 @@ std::unique_ptr<Value> Object_getProperty(
   return std::make_unique<Value>(std::move(value));
 }
 
-void Object_setProperty(
+inline void Object_setProperty(
     Object &self, Runtime &rt, const PropNameID &name, Value const &value
 ) noexcept
 {
   self.setProperty(rt, name, value);
 }
 
-std::unique_ptr<Array> Object_asArray(Object const &self, Runtime &rt)
+inline std::unique_ptr<Array> Object_asArray(Object const &self, Runtime &rt)
 {
   auto val = self.asArray(rt);
   return std::make_unique<Array>(std::move(val));
 }
 
 std::unique_ptr<ArrayBuffer>
-Object_asArrayBuffer(Object const &self, Runtime &rt)
+inline Object_asArrayBuffer(Object const &self, Runtime &rt)
 {
   auto val = self.getArrayBuffer(rt);
   return std::make_unique<ArrayBuffer>(std::move(val));
 }
 
-std::unique_ptr<Function> Object_asFunction(Object const &self, Runtime &rt)
+inline std::unique_ptr<Function> Object_asFunction(Object const &self, Runtime &rt)
 {
   auto val = self.asFunction(rt);
   return std::make_unique<Function>(std::move(val));
 }
 
-std::shared_ptr<HostObject> Object_asHostObject(Object const &self, Runtime &rt)
+inline std::shared_ptr<HostObject> Object_asHostObject(Object const &self, Runtime &rt)
 {
   return self.asHostObject(rt);
 }
 
-bool Object_instanceOf(Object const &self, Runtime &rt, Function const &ctor)
+inline bool Object_instanceOf(Object const &self, Runtime &rt, Function const &ctor)
 {
   return self.instanceOf(rt, ctor);
 }
 
-bool Object_hasProperty(Object const &self, Runtime &rt, const PropNameID &name)
+inline bool Object_hasProperty(Object const &self, Runtime &rt, const PropNameID &name)
 {
   return self.hasProperty(rt, name);
 }
 
-bool Object_isArray(Object const &self, Runtime &rt)
+inline bool Object_isArray(Object const &self, Runtime &rt)
 {
   return self.isArray(rt);
 }
 
 // NativeState
 
-bool Runtime_hasNativeState(
+inline bool Runtime_hasNativeState(
     Runtime &rt, Object const &obj
 ) noexcept
 {
   return rt.hasNativeState(obj);
 }
 
-::std::shared_ptr<NativeState> Runtime_getNativeState(
+inline ::std::shared_ptr<NativeState> Runtime_getNativeState(
     Runtime &rt, Object const &obj
 ) noexcept
 {
@@ -293,14 +293,14 @@ bool Runtime_hasNativeState(
   return rt.getNativeState(obj);
 }
 
-void Object_setNativeState(
+inline void Object_setNativeState(
     Object const &self, Runtime &rt, ::std::shared_ptr<NativeState> state
 ) noexcept
 {
   self.setNativeState(rt, std::move(state));
 }
 
-::std::unique_ptr<Object> Object_createWithPrototype(
+inline ::std::unique_ptr<Object> Object_createWithPrototype(
     Runtime &rt, Value const &prototype
 ) noexcept
 {
@@ -308,24 +308,24 @@ void Object_setNativeState(
   return std::make_unique<Object>(std::move(value));
 }
 
-void Object_setExternalMemoryPressure(
+inline void Object_setExternalMemoryPressure(
     Object const &self, Runtime &rt, size_t amt
 ) noexcept
 {
   self.setExternalMemoryPressure(rt, amt);
 }
 
-bool Object_isArrayBuffer(Object const &self, Runtime &rt)
+inline bool Object_isArrayBuffer(Object const &self, Runtime &rt)
 {
   return self.isArrayBuffer(rt);
 }
 
-bool Object_isFunction(Object const &self, Runtime &rt)
+inline bool Object_isFunction(Object const &self, Runtime &rt)
 {
   return self.isFunction(rt);
 }
 
-std::unique_ptr<Array> Object_getPropertyNames(Object &self, Runtime &rt)
+inline std::unique_ptr<Array> Object_getPropertyNames(Object &self, Runtime &rt)
 {
   auto val = self.getPropertyNames(rt);
   return std::make_unique<Array>(std::move(val));
@@ -334,12 +334,12 @@ std::unique_ptr<Array> Object_getPropertyNames(Object &self, Runtime &rt)
 // WeakObject
 
 std::unique_ptr<WeakObject>
-WeakObject_fromObject(Runtime &rt, Object const &object)
+inline WeakObject_fromObject(Runtime &rt, Object const &object)
 {
   return std::make_unique<WeakObject>(rt, object);
 }
 
-std::unique_ptr<Value> WeakObject_lock(WeakObject &self, Runtime &rt)
+inline std::unique_ptr<Value> WeakObject_lock(WeakObject &self, Runtime &rt)
 {
   auto val = self.lock(rt);
   return std::make_unique<Value>(std::move(val));
@@ -347,38 +347,38 @@ std::unique_ptr<Value> WeakObject_lock(WeakObject &self, Runtime &rt)
 
 // Array
 
-std::unique_ptr<Array> Array_createWithLength(Runtime &rt, size_t length)
+inline std::unique_ptr<Array> Array_createWithLength(Runtime &rt, size_t length)
 {
   return std::make_unique<Array>(rt, length);
 }
 
-std::unique_ptr<Value> Array_get(Array const &self, Runtime &rt, size_t index)
+inline std::unique_ptr<Value> Array_get(Array const &self, Runtime &rt, size_t index)
 {
   auto val = self.getValueAtIndex(rt, index);
   return std::make_unique<Value>(std::move(val));
 }
 
-void Array_set(Array &self, Runtime &rt, size_t index, Value const &value)
+inline void Array_set(Array &self, Runtime &rt, size_t index, Value const &value)
 {
   self.setValueAtIndex(rt, index, value);
 }
 
-size_t Array_length(Array const &self, Runtime &rt)
+inline size_t Array_length(Array const &self, Runtime &rt)
 {
   return self.length(rt);
 }
 
-size_t ArrayBuffer_length(ArrayBuffer const &self, Runtime &rt)
+inline size_t ArrayBuffer_length(ArrayBuffer const &self, Runtime &rt)
 {
   return self.length(rt);
 }
 
-uint8_t *ArrayBuffer_data(ArrayBuffer const &self, Runtime &rt)
+inline uint8_t *ArrayBuffer_data(ArrayBuffer const &self, Runtime &rt)
 {
   return self.data(rt);
 }
 
-bool Function_isHostFunction(Function const &self, Runtime &rt)
+inline bool Function_isHostFunction(Function const &self, Runtime &rt)
 {
   return self.isHostFunction(rt);
 }
@@ -386,13 +386,13 @@ bool Function_isHostFunction(Function const &self, Runtime &rt)
 // Function
 
 std::unique_ptr<Value>
-Function_call(Function const &self, Runtime &rt, std::vector<Value> const &args)
+inline Function_call(Function const &self, Runtime &rt, std::vector<Value> const &args)
 {
   auto value = self.call(rt, args.data(), args.size());
   return std::make_unique<Value>(std::move(value));
 }
 
-std::unique_ptr<Value> Function_callWithThis(
+inline std::unique_ptr<Value> Function_callWithThis(
     Function const &self, Runtime &rt, Object const &thisObj,
     std::vector<Value> const &args
 )
@@ -401,7 +401,7 @@ std::unique_ptr<Value> Function_callWithThis(
   return std::make_unique<Value>(std::move(value));
 }
 
-std::unique_ptr<Value> Function_callAsConstructor(
+inline std::unique_ptr<Value> Function_callAsConstructor(
     Function const &self, Runtime &rt, std::vector<Value> const &args
 )
 {
@@ -415,7 +415,7 @@ std::unique_ptr<Value> Function_callAsConstructor(
     ::std::size_t stride, ::jsi_rs::ffi::c_void *closure
 );
 
-std::unique_ptr<Function> Function_createFromHostFunction(
+inline std::unique_ptr<Function> Function_createFromHostFunction(
     Runtime &rt, const PropNameID &name, unsigned int paramCount, void *closure
 )
 {
@@ -435,98 +435,98 @@ std::unique_ptr<Function> Function_createFromHostFunction(
 
 // Value
 
-std::unique_ptr<Value> Value_fromUndefined()
+inline std::unique_ptr<Value> Value_fromUndefined()
 {
   return std::make_unique<Value>();
 }
 
-std::unique_ptr<Value> Value_fromNull()
+inline std::unique_ptr<Value> Value_fromNull()
 {
   return std::make_unique<Value>(std::nullptr_t());
 }
 
-std::unique_ptr<Value> Value_fromInt(int i)
+inline std::unique_ptr<Value> Value_fromInt(int i)
 {
   return std::make_unique<Value>(i);
 }
 
-std::unique_ptr<Value> Value_fromBool(bool b)
+inline std::unique_ptr<Value> Value_fromBool(bool b)
 {
   return std::make_unique<Value>(b);
 }
 
-std::unique_ptr<Value> Value_fromDouble(double d)
+inline std::unique_ptr<Value> Value_fromDouble(double d)
 {
   return std::make_unique<Value>(d);
 }
 
-std::unique_ptr<Value> Value_fromString(Runtime &rt, std::unique_ptr<String> s)
+inline std::unique_ptr<Value> Value_fromString(Runtime &rt, std::unique_ptr<String> s)
 {
   return std::make_unique<Value>(rt, std::move(*s.release()));
 }
 
-std::unique_ptr<Value> Value_fromSymbol(Runtime &rt, std::unique_ptr<Symbol> s)
+inline std::unique_ptr<Value> Value_fromSymbol(Runtime &rt, std::unique_ptr<Symbol> s)
 {
   return std::make_unique<Value>(rt, std::move(*s.release()));
 }
 
-std::unique_ptr<Value> Value_fromObject(Runtime &rt, std::unique_ptr<Object> o)
+inline std::unique_ptr<Value> Value_fromObject(Runtime &rt, std::unique_ptr<Object> o)
 {
   return std::make_unique<Value>(rt, std::move(*o.release()));
 }
 
-std::unique_ptr<Value> Value_copyFromString(Runtime &rt, const String &s)
+inline std::unique_ptr<Value> Value_copyFromString(Runtime &rt, const String &s)
 {
   return std::make_unique<Value>(rt, s);
 }
 
-std::unique_ptr<Value> Value_copyFromSymbol(Runtime &rt, const Symbol &s)
+inline std::unique_ptr<Value> Value_copyFromSymbol(Runtime &rt, const Symbol &s)
 {
   return std::make_unique<Value>(rt, s);
 }
 
-std::unique_ptr<Value> Value_copyFromObject(Runtime &rt, const Object &o)
+inline std::unique_ptr<Value> Value_copyFromObject(Runtime &rt, const Object &o)
 {
   return std::make_unique<Value>(rt, o);
 }
 
-std::unique_ptr<Value> Value_fromJson(Runtime &rt, rust::Str s)
+inline std::unique_ptr<Value> Value_fromJson(Runtime &rt, rust::Str s)
 {
   auto val =
       Value::createFromJsonUtf8(rt, (const uint8_t *)s.data(), s.length());
   return std::make_unique<Value>(std::move(val));
 }
 
-bool Value_compare(Runtime &rt, const Value &self, const Value &other) noexcept
+inline bool Value_compare(Runtime &rt, const Value &self, const Value &other) noexcept
 {
   return Value::strictEquals(rt, self, other);
 }
 
-std::unique_ptr<String> Value_asString(const Value &self, Runtime &rt)
+inline std::unique_ptr<String> Value_asString(const Value &self, Runtime &rt)
 {
   auto val = self.asString(rt);
   return std::make_unique<String>(std::move(val));
 }
 
-std::unique_ptr<Symbol> Value_asSymbol(const Value &self, Runtime &rt)
+inline std::unique_ptr<Symbol> Value_asSymbol(const Value &self, Runtime &rt)
 {
   auto val = self.asSymbol(rt);
   return std::make_unique<Symbol>(std::move(val));
 }
 
-std::unique_ptr<Object> Value_asObject(const Value &self, Runtime &rt)
+inline std::unique_ptr<Object> Value_asObject(const Value &self, Runtime &rt)
 {
   auto val = self.asObject(rt);
   return std::make_unique<Object>(std::move(val));
 }
 
-std::unique_ptr<String> Value_toString(const Value &self, Runtime &rt)
+inline std::unique_ptr<String> Value_toString(const Value &self, Runtime &rt)
 {
   auto val = self.toString(rt);
   return std::make_unique<String>(std::move(val));
 }
 
-std::unique_ptr<Value> Value_copy(const Value &self, Runtime &rt)
+inline std::unique_ptr<Value> Value_copy(const Value &self, Runtime &rt)
 {
   auto val = Value(rt, self);
   return std::make_unique<Value>(std::move(val));
@@ -536,14 +536,14 @@ std::unique_ptr<Value> Value_copy(const Value &self, Runtime &rt)
 
 void call_invoker_trampoline(void *closure);
 
-void CallInvoker_invokeSync(
+inline void CallInvoker_invokeSync(
     std::shared_ptr<facebook::react::CallInvoker> ci, void *closure
 )
 {
   ci->invokeSync([closure]() { call_invoker_trampoline(closure); });
 }
 
-void CallInvoker_invokeAsync(
+inline void CallInvoker_invokeAsync(
     std::shared_ptr<facebook::react::CallInvoker> ci, void *closure
 )
 {
@@ -552,23 +552,23 @@ void CallInvoker_invokeAsync(
 
 // Utility fns
 
-std::unique_ptr<std::vector<Value>> create_value_vector()
+inline std::unique_ptr<std::vector<Value>> create_value_vector()
 {
   return std::make_unique<std::vector<Value>>();
 }
 
-void push_value_vector(std::vector<Value> &values, std::unique_ptr<Value> value)
+inline void push_value_vector(std::vector<Value> &values, std::unique_ptr<Value> value)
 {
   auto x = std::move(*value.release());
   values.push_back(std::move(x));
 }
 
-std::unique_ptr<std::vector<PropNameID>> create_prop_name_vector()
+inline std::unique_ptr<std::vector<PropNameID>> create_prop_name_vector()
 {
   return std::make_unique<std::vector<PropNameID>>();
 }
 
-void push_prop_name_vector(
+inline void push_prop_name_vector(
     std::vector<PropNameID> &values, std::unique_ptr<PropNameID> value
 )
 {
@@ -576,7 +576,7 @@ void push_prop_name_vector(
   values.push_back(std::move(x));
 }
 
-std::unique_ptr<PropNameID> pop_prop_name_vector(std::vector<PropNameID> &values
+inline std::unique_ptr<PropNameID> pop_prop_name_vector(std::vector<PropNameID> &values
 )
 {
   if (values.size() > 0) {

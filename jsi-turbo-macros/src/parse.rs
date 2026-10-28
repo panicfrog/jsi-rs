@@ -310,16 +310,17 @@ fn is_legal_pair(a: &MethodKind, b: &MethodKind) -> bool {
 // small type helpers
 
 fn type_symbol(ty: &Type) -> String {
+    use heck::ToSnakeCase;
     let rendered = quote::ToTokens::to_token_stream(ty).to_string();
     let mut sym = String::new();
     for c in rendered.chars() {
         if c.is_ascii_alphanumeric() {
-            sym.push(c.to_ascii_lowercase());
+            sym.push(c);
         } else if !sym.ends_with('_') {
             sym.push('_');
         }
     }
-    sym.trim_matches('_').to_string()
+    sym.trim_matches('_').to_snake_case()
 }
 
 fn last_segment(ty: &Type) -> Option<&syn::PathSegment> {

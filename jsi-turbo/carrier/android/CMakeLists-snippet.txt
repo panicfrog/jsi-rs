@@ -1,0 +1,17 @@
+# RustTurbo carrier: link the Rust aggregate static library into
+# libappmodules.so. Merge into your app's src/main/jni/CMakeLists.txt after
+# the RN application.cmake include.
+#
+# The .a files are produced by cargo(-ndk), e.g.:
+#   cargo ndk --target arm64-v8a --platform 24 --release build -p rust-app
+#   cp target/aarch64-linux-android/release/librust_app.a ../rust/arm64-v8a/
+#
+# Same static-library model as iOS: the platform linker pulls in the archive
+# members the glue references (which also keeps the cxx bridge's C++ side
+# alive — a Rust cdylib would drop those unreferenced objects).
+
+add_library(rust_app STATIC IMPORTED)
+set_target_properties(rust_app PROPERTIES
+  IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../rust/${ANDROID_ABI}/librust_app.a)
+
+target_link_libraries(${CMAKE_PROJECT_NAME} rust_app)

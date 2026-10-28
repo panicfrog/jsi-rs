@@ -30,7 +30,7 @@ namespace jsi_rs
       RustNativeState(rust::Box<RustNativeCarrier> state) : NativeState(), state(std::move(state)) {}
     };
 
-    ::std::shared_ptr<NativeState> RustNativeState_create(
+    inline ::std::shared_ptr<NativeState> RustNativeState_create(
         rust::Box<RustNativeCarrier> state) noexcept
     {
       return std::make_shared<RustNativeState>(std::move(state));
@@ -38,13 +38,13 @@ namespace jsi_rs
 
     // Returns a null shared_ptr if the given state is not a RustNativeState
     // (e.g. some other framework's state object).
-    ::std::shared_ptr<RustNativeState> NativeState_asRust(
+    inline ::std::shared_ptr<RustNativeState> NativeState_asRust(
         ::std::shared_ptr<NativeState> state) noexcept
     {
       return std::dynamic_pointer_cast<RustNativeState>(state);
     }
 
-    RustNativeCarrier const &RustNativeState_getInner(
+    inline RustNativeCarrier const &RustNativeState_getInner(
         RustNativeState const &state) noexcept
     {
       return *state.state;

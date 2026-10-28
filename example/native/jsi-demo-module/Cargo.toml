@@ -6,11 +6,14 @@ license = "MIT"
 publish = false
 
 [lib]
-# iOS consumes the staticlib, Android consumes the cdylib
-crate-type = ["staticlib", "cdylib"]
+# linked into the per-app aggregate library (example/native/rust-app), which
+# is what iOS/Android actually consume
+crate-type = ["lib"]
 
 [dependencies]
 jsi = { path = "../../../jsi" }
+jsi-turbo = { path = "../../../jsi-turbo" }
+linkme = "0.3"
 anyhow = "1.0"
 cxx = "1.0"
 serde = { version = "1.0", features = ["derive"] }

@@ -23,17 +23,27 @@ of jsi-rs (see the crate versions in the workspace root).
   - Android: `rustup target add aarch64-linux-android` and [cargo-ndk]
 - Xcode + CocoaPods (iOS), Android SDK + NDK + JDK 21 (Android)
 
-## Build the Rust module
+## Build the Rust library
+
+The app links **one** Rust aggregate library (`native/rust-app`) that contains
+every Rust module plus the [jsi-turbo](../jsi-turbo) runtime. Building it
+also runs `#[RustTurboModule]` macros, which write the TypeScript bindings
+under `native/jsi-demo-module/generated/rust-turbo/`.
 
 ```bash
-cd native/jsi-demo-module
+# from the repo root
 
 # iOS simulator
-cargo build --target aarch64-apple-ios-sim
-cp target/aarch64-apple-ios-sim/debug/libjsi_demo_module.a libjsi-demo-module.a
+cargo build --release -p rust-app --target aarch64-apple-ios-sim
+cp target/aarch64-apple-ios-sim/release/librust_app.a \
+   example/native/jsi-demo-module/librust-app.a
 
-# Android (arm64 emulator / device)
-cargo ndk build -t arm64-v8a -P 24 -o ../../android/app/src/main/jniLibs
+# Android (arm64 emulator / device) — also a static library, linked into
+# libappmodules.so by the app's CMake
+cargo ndk build -t arm64-v8a -P 24 --release -p rust-app
+mkdir -p example/android/app/src/main/rust/arm64-v8a
+cp target/aarch64-linux-android/release/librust_app.a \
+   example/android/app/src/main/rust/arm64-v8a/
 ```
 
 For iOS device builds, also build `aarch64-apple-ios` and either lipo the two
@@ -75,15 +85,24 @@ npm start
 
 ## How the integration works
 
-- **iOS** — the pod (`JsiDemoModule.podspec`) vendors the Rust static library
-  and compiles [`JsiDemoModule.mm`](native/jsi-demo-module/ios/JsiDemoModule.mm),
-  a blocking-synchronous native module whose `install()` grabs the JSI runtime
-  pointer (`RCTBridge.runtime`, which works in both bridge and bridgeless
-  modes) and calls the Rust `jsi_demo_install` entry point.
-- **Android** — `JsiDemoModule.kt` loads `libjsi_demo_module.so` and passes the
-  runtime pointer from `reactApplicationContext.javaScriptContextHolder` into
-  the Rust JNI entry point.
-- **JS** — `App.tsx` calls `NativeModules.JsiDemoModule.install()` once at
-  startup; after that the `RustDemo` global is available everywhere.
+Two generations of the jsi-rs API live side by side in this example:
+
+- **`TurboDemo` — `#[RustTurboModule]` (the jsi-turbo framework)**: the impl
+  block in [`native/jsi-demo-module/src/lib.rs`](native/jsi-demo-module/src/lib.rs)
+  is the entire spec — the macro generates the method table, linkme
+  auto-registration and the TypeScript bindings. The platform glue
+  ([iOS `RustTurboModule.mm`](native/jsi-demo-module/ios/RustTurboModule.mm),
+  [Android `RustTurboBindings.cpp`](android/app/src/main/jni/RustTurboBindings.cpp))
+  is a one-time-per-app carrier that hands every new JS runtime to
+  `rust_turbo_install` in the aggregate library; JS gets modules via the
+  generated `getTurboDemo()` accessor, which lazily constructs the module
+  through the `RustTurbo` proxy (`globalThis.RustTurbo.get('TurboDemo')`).
+- **`RustDemo` — legacy `#[host_object]` global**: kept as a regression
+  example of the original jsi-rs pattern; the aggregate library installs it
+  into the JS global scope on every runtime creation.
+
+Both are installed by the same carrier call (`rust_turbo_install`), which
+React Native invokes when the `RustTurbo` TurboModule is first requested —
+the generated TS bindings do that automatically.
 
 [cargo-ndk]: https://github.com/bbqsrc/cargo-ndk

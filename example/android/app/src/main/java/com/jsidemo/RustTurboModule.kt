@@ -1,3 +1,12 @@
+// RustTurbo carrier for Android (module half). Copy once per app.
+//
+// React Native calls [getBindingsInstaller] when this module is first
+// requested from JS (TurboModuleRegistry.get('RustTurbo') — which the
+// generated TypeScript bindings do automatically) and runs the returned
+// installer with the live jsi::Runtime + CallInvoker. The installer is
+// created in C++ (RustTurboBindings.cpp) and calls rust_turbo_install in
+// the Rust aggregate library (librust_app.so).
+
 package com.jsidemo
 
 import com.facebook.proguard.annotations.DoNotStrip
@@ -8,24 +17,16 @@ import com.facebook.react.turbomodule.core.interfaces.BindingsInstallerHolder
 import com.facebook.react.turbomodule.core.interfaces.TurboModule
 import com.facebook.react.turbomodule.core.interfaces.TurboModuleWithJSIBindings
 
-/**
- * A TurboModule whose only job is to install the Rust JSI bindings.
- *
- * React Native calls [getBindingsInstaller] when the module is first requested
- * from JS (TurboModuleRegistry.get) and runs the returned installer with the
- * live jsi::Runtime. The installer is created in C++
- * (src/main/jni/JsiDemoBindings.cpp) and calls into the Rust library.
- */
-@ReactModule(name = JsiDemoModule.NAME)
-class JsiDemoModule(reactContext: ReactApplicationContext) :
+@ReactModule(name = RustTurboModule.NAME)
+class RustTurboModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext), TurboModule, TurboModuleWithJSIBindings {
 
   override fun getName() = NAME
 
-  // implemented in src/main/jni/JsiDemoBindings.cpp (libappmodules.so)
+  // implemented in RustTurboBindings.cpp (libappmodules.so)
   @DoNotStrip external override fun getBindingsInstaller(): BindingsInstallerHolder
 
   companion object {
-    const val NAME = "JsiDemoModule"
+    const val NAME = "RustTurbo"
   }
 }

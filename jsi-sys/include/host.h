@@ -65,43 +65,43 @@ namespace jsi_rs
       }
     };
 
-    ::std::unique_ptr<CxxHostObject> CxxHostObject_create(
+    inline ::std::unique_ptr<CxxHostObject> CxxHostObject_create(
         rust::Box<::jsi_rs::ffi::RustHostObject> rho) noexcept
     {
       return std::make_unique<CxxHostObject>(std::move(rho));
     }
 
-    ::std::unique_ptr<HostObject> CxxHostObject_toHostObjectU(
+    inline ::std::unique_ptr<HostObject> CxxHostObject_toHostObjectU(
         ::std::unique_ptr<CxxHostObject> cho) noexcept
     {
       return cho;
     }
 
-    ::std::unique_ptr<CxxHostObject> CxxHostObject_fromHostObjectU(
+    inline ::std::unique_ptr<CxxHostObject> CxxHostObject_fromHostObjectU(
         ::std::unique_ptr<HostObject> ho) noexcept
     {
       return std::unique_ptr<CxxHostObject>(dynamic_cast<CxxHostObject *>(ho.release()));
     }
 
-    ::std::shared_ptr<HostObject> CxxHostObject_toHostObjectS(
+    inline ::std::shared_ptr<HostObject> CxxHostObject_toHostObjectS(
         ::std::shared_ptr<CxxHostObject> cho) noexcept
     {
       return cho;
     }
 
-    ::std::shared_ptr<CxxHostObject> CxxHostObject_fromHostObjectS(
+    inline ::std::shared_ptr<CxxHostObject> CxxHostObject_fromHostObjectS(
         ::std::shared_ptr<HostObject> ho) noexcept
     {
       return std::dynamic_pointer_cast<CxxHostObject>(ho);
     }
 
-    RustHostObject const &CxxHostObject_getInner(
+    inline RustHostObject const &CxxHostObject_getInner(
         CxxHostObject const &cho) noexcept
     {
       return *cho.inner;
     }
 
-    RustHostObject &CxxHostObject_getInnerMut(
+    inline RustHostObject &CxxHostObject_getInnerMut(
         CxxHostObject &cho) noexcept
     {
       return *cho.inner;

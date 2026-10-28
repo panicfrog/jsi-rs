@@ -77,4 +77,7 @@ yarn-error.log
 # Rust native module build artifacts
 native/jsi-demo-module/target/
 native/jsi-demo-module/*.a
+native/rust-app/include/
 android/app/src/main/jniLibs/
+android/app/src/main/rust/
+native/rust-app/include/
