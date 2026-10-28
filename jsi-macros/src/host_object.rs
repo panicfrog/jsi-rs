@@ -396,13 +396,13 @@ impl Parse for HostObjectImpl {
                                 let this = this;
                                 let this = this.get_inner::<Self>().unwrap();
                                 #trace
-                                let res = this.#method_name(rt, #(#arg_names),*).await;
+                                let res = this.#method_name(&mut *rt, #(#arg_names),*).await;
 
                                 match res {
                                     Ok(val) => {
-                                        let val = ::jsi::IntoValue::into_value(val, rt);
+                                        let val = ::jsi::IntoValue::into_value(val, &mut *rt);
                                         
-                                        resolve.lock().unwrap().call(::std::iter::once(val), rt)?;
+                                        resolve.lock().unwrap().call(::std::iter::once(val), &mut *rt)?;
 
                                         // <Self as ::jsi::AsyncUserHostObject>::invoke(Box::new(move || {
                                         //     resolve.lock().unwrap().call(::std::iter::once(val), rt)?;
@@ -410,51 +410,10 @@ impl Parse for HostObjectImpl {
                                         // }));
                                     },
                                     Err(err) => {
-                                        reject.lock().unwrap().call(::std::iter::empty(), rt);
-
-                                        // for some reason, just calling reject() doesn't actually cause
-                                        // the promise to reject, so instead we create a rejected
-                                        // promise and return that
-
-                                        let promise_ctor = rt.global().get(::jsi::PropName::new("Promise", rt), rt);
-                                        let promise_ctor: ::jsi::JsiObject = ::jsi::FromValue::from_value(
-                                            &promise_ctor, 
-                                            rt,
-                                        ).expect("Promise constructor is not an object");
-                                        let promise_reject: ::jsi::JsiFn = ::jsi::FromValue::from_value(
-                                            &promise_ctor.get(::jsi::PropName::new("reject", rt), rt), 
-                                            rt,
-                                        ).expect("Promise.reject is not a function");
-
-                                        let err = ::jsi::js_error!(err, rt);
-
-                                        let rejection = promise_reject.call(::std::iter::once(err.into_value(rt)), rt).unwrap();
-                                        reject.lock().unwrap().call(::std::iter::once(rejection), rt)?;
-
-                                        // <Self as ::jsi::AsyncUserHostObject>::invoke(Box::new(move || {
-                                        //     reject.lock().unwrap().call(::std::iter::empty());
-
-                                        //     // for some reason, just calling reject() doesn't actually cause
-                                        //     // the promise to reject, so instead we create a rejected
-                                        //     // promise and return that
-
-                                        //     let promise_ctor = rt.global().get(::jsi::PropName::new("Promise", rt), rt);
-                                        //     let promise_ctor: ::jsi::JsiObject = ::jsi::FromValue::from_value(
-                                        //         &promise_ctor, 
-                                        //         rt,
-                                        //     ).expect("Promise constructor is not an object");
-                                        //     let promise_reject: ::jsi::JsiFn = ::jsi::FromValue::from_value(
-                                        //         &promise_ctor.get(::jsi::PropName::new("reject", rt), rt), 
-                                        //         rt,
-                                        //     ).expect("Promise.reject is not a function");
-
-                                        //     let err = ::jsi::js_error!(err, rt);
-
-                                        //     let rejection = promise_reject.call(::std::iter::once(err.into())).unwrap();
-                                        //     reject.lock().unwrap().call(::std::iter::once(rejection))?;
-
-                                        //     Ok(())
-                                        // }));
+                                        // reject with a proper Error object so that JS sees
+                                        // `e.message` in catch handlers
+                                        let err = ::jsi::js_error!(&mut *rt, "{}", err);
+                                        reject.lock().unwrap().call(::std::iter::once(err.into_value(&mut *rt)), &mut *rt)?;
                                     },
                                 }
 

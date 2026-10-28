@@ -40,13 +40,16 @@ pub use symbol::*;
 pub use value::*;
 
 /// Creates a JavaScript `Error` object with the given string as the message.
+///
+/// Takes a [`RuntimeHandle`] followed by `format!`-style arguments, e.g.
+/// `js_error!(rt, "bad thing: {}", err)`.
 #[macro_export]
 macro_rules! js_error {
-    ($rt: expr, $err: tt) => {{
+    ($rt: expr, $($err: tt)+) => {{
         let mut rt = $rt;
         let error_ctor = rt.global().get(PropName::new("Error", rt), rt);
         let error_ctor: ::jsi::JsiFn = error_ctor.try_into_js(rt).unwrap();
-        let error_str = format!($err);
+        let error_str = format!($($err)*);
         let error_str = ::jsi::JsiValue::new_string(error_str.as_str(), rt);
         let error = error_ctor
             .call_as_constructor(::std::iter::once(error_str), rt)
@@ -58,11 +61,12 @@ macro_rules! js_error {
     }};
 }
 
-pub type JsTaskCallback = Box<
-    dyn (for<'a> FnOnce(
-            &'a mut RuntimeHandle<'a>,
-        ) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + 'a>>)
-        + Send,
+pub type JsTaskCallback<'rt> = Box<
+    dyn FnOnce(
+            &'rt mut RuntimeHandle<'rt>,
+        ) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + 'rt>>
+        + Send
+        + 'rt,
 >;
 
 pub fn init(
