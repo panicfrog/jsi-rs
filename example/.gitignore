@@ -33,6 +33,7 @@ local.properties
 .cxx/
 *.keystore
 !debug.keystore
+.kotlin/
 
 # node.js
 #
@@ -77,4 +78,3 @@ yarn-error.log
 native/jsi-demo-module/target/
 native/jsi-demo-module/*.a
 android/app/src/main/jniLibs/
-.spm.pods/

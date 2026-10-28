@@ -7,10 +7,15 @@
 use jsi::{host_object, IntoValue, PropName, RuntimeHandle};
 use serde::{Deserialize, Serialize};
 
-/// Installs the `RustDemo` host object into the JS global scope. The call
-/// invoker is not needed for this demo (all calls are synchronous), so we
-/// pass a null one.
-fn install_into(runtime: *mut jsi::sys::Runtime) -> bool {
+/// Installs the `RustDemo` host object into the JS global scope of the given
+/// `jsi::Runtime`.
+///
+/// Called by the platform glue whenever React Native creates a runtime: the
+/// iOS TurboModule's `installJSIBindingsWithRuntime:` and the Android
+/// TurboModule's `getBindingsInstaller()` installer. The call invoker is not
+/// needed for this demo (all calls are synchronous), so we pass a null one.
+#[no_mangle]
+pub extern "C" fn jsi_demo_install(runtime: *mut jsi::sys::Runtime) -> bool {
     let (mut rt, _invoker) = jsi::init(runtime, cxx::SharedPtr::null());
 
     let demo = RustDemo {
@@ -24,24 +29,6 @@ fn install_into(runtime: *mut jsi::sys::Runtime) -> bool {
     );
 
     true
-}
-
-/// Called from Objective-C once the JSI runtime is ready.
-#[no_mangle]
-pub extern "C" fn jsi_demo_install(runtime: *mut jsi::sys::Runtime) -> bool {
-    install_into(runtime)
-}
-
-/// Called from Kotlin (JsiDemoModule.kt) once the JSI runtime is ready. The
-/// JNIEnv and jclass parameters are required by JNI but unused here.
-#[cfg(target_os = "android")]
-#[no_mangle]
-pub extern "system" fn Java_com_jsidemo_JsiDemoModule_init(
-    _env: *mut std::ffi::c_void,
-    _class: *mut std::ffi::c_void,
-    runtime_ptr: i64,
-) {
-    install_into(runtime_ptr as *mut _);
 }
 
 /// A struct that crosses the JSI boundary in both directions via serde.
