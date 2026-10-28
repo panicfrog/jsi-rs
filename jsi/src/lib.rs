@@ -48,8 +48,8 @@ pub use value::*;
 #[macro_export]
 macro_rules! js_error {
     ($rt: expr, $($err: tt)+) => {{
-        let mut rt = $rt;
-        let error_ctor = rt.global().get(PropName::new("Error", rt), rt);
+        let mut rt = &mut *$rt;
+        let error_ctor = rt.global().get(::jsi::PropName::new("Error", rt), rt);
         let error_ctor: ::jsi::JsiFn = error_ctor.try_into_js(rt).unwrap();
         let error_str = format!($($err)*);
         let error_str = ::jsi::JsiValue::new_string(error_str.as_str(), rt);

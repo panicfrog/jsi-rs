@@ -1,65 +1,69 @@
-//! Rust type → TypeScript type mapping (V1 surface).
+//! Rust type ↔ TypeScript type mapping.
+//!
+//! Known data types map to TS primitives; JSI handle types are sync-only;
+//! any other named type is assumed to be a `#[derive(TurboStruct)]` struct
+//! and is emitted as an `import type` from `./structs/` (the Rust compiler
+//! enforces the actual `FromValue`/`IntoValue` bounds at call sites).
 
 use syn::Type;
 
-/// Whether the type can appear as a method parameter (i.e. has a usable
-/// `FromValue` path).
-pub fn is_supported_param_type(ty: &Type) -> bool {
-    check(ty, false)
-}
-
-/// Whether the type can appear as a method return value (i.e. has a usable
-/// `IntoValue` path).
-pub fn is_supported_return_type(ty: &Type) -> bool {
-    check(ty, true)
-}
-
-fn check(ty: &Type, ret: bool) -> bool {
-    match ty {
-        Type::Path(p) => {
-            let Some(seg) = p.path.segments.last() else { return false };
-            match seg.ident.to_string().as_str() {
-                "f64" | "bool" | "String" | "JsiValue" | "JsiObject" => true,
-                "i32" | "u32" | "usize" | "isize" => true,
-                "Vec" | "Option" => generic_inner(seg).map(|t| check(t, ret)).unwrap_or(false),
-                // return-only conveniences
-                "i8" | "i16" | "i64" | "u8" | "u16" | "u64" | "f32" | "JsiString" | "JsiSymbol" | "JsiFn" => ret,
-                _ => false,
-            }
-        }
-        _ => false,
+/// Whether the type is a JSI handle (`JsiValue`, `JsiObject`, ...) that is
+/// only usable in sync methods.
+pub fn is_jsi_handle_type(ty: &Type) -> bool {
+    match last_segment(ty) {
+        Some(seg) => matches!(
+            seg.ident.to_string().as_str(),
+            "JsiValue" | "JsiObject" | "JsiString" | "JsiSymbol" | "JsiFn"
+        ),
+        None => false,
     }
 }
 
-/// The TypeScript type for a Rust type, or an error description.
-pub fn ts_type(ty: &Type) -> String {
-    match ty {
-        Type::Path(p) => {
-            let seg = p.path.segments.last().unwrap();
-            match seg.ident.to_string().as_str() {
-                "f64" | "f32" | "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64"
-                | "usize" | "isize" => "number".into(),
-                "bool" => "boolean".into(),
-                "String" | "JsiString" => "string".into(),
-                "JsiValue" | "JsiObject" | "JsiFn" | "JsiSymbol" => "any".into(),
-                "Vec" => {
-                    let inner = generic_inner(seg).map(ts_type).unwrap_or_else(|| "any".into());
-                    format!("{inner}[]")
-                }
-                "Option" => {
-                    let inner = generic_inner(seg).map(ts_type).unwrap_or_else(|| "any".into());
-                    format!("{inner} | null")
-                }
-                other => format!("/* unsupported: {other} */ any"),
-            }
+/// The TypeScript type for a Rust type. Unknown named types are treated as
+/// TurboStruct references and add an import line to `imports`.
+pub fn ts_type_of(ty: &Type, imports: &mut Vec<String>) -> String {
+    let Some(seg) = last_segment(ty) else {
+        return "any".into();
+    };
+    match seg.ident.to_string().as_str() {
+        "f64" | "f32" | "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64"
+        | "usize" | "isize" => "number".into(),
+        "bool" => "boolean".into(),
+        "String" | "JsiString" => "string".into(),
+        "JsiValue" | "JsiObject" | "JsiFn" | "JsiSymbol" => "any".into(),
+        "Vec" => {
+            let inner = generic_inner(seg)
+                .map(|t| ts_type_of(t, imports))
+                .unwrap_or_else(|| "any".into());
+            format!("{inner}[]")
         }
-        _ => "any".into(),
+        "Option" => {
+            let inner = generic_inner(seg)
+                .map(|t| ts_type_of(t, imports))
+                .unwrap_or_else(|| "any".into());
+            format!("{inner} | null")
+        }
+        other => {
+            // assumed #[derive(TurboStruct)] struct
+            let import = format!("import type {{ {other} }} from './structs/{other}';");
+            if !imports.contains(&import) {
+                imports.push(import);
+            }
+            other.into()
+        }
     }
 }
 
 /// Human-readable rendering for diagnostics.
 pub fn render_type(ty: &Type) -> String {
     quote::ToTokens::to_token_stream(ty).to_string()
+}
+
+fn last_segment(ty: &Type) -> Option<&syn::PathSegment> {
+    match ty {
+        Type::Path(p) => p.path.segments.last(),
+        _ => None,
+    }
 }
 
 fn generic_inner(seg: &syn::PathSegment) -> Option<&Type> {

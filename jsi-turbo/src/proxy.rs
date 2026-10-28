@@ -12,31 +12,33 @@ use std::collections::{BTreeMap, HashMap};
 use anyhow::{bail, Context};
 use jsi::{AsValue, IntoValue, JsiFn, JsiObject, JsiValue, PropName, RuntimeHandle};
 
+use crate::dispatcher::Dispatcher;
 use crate::holder::{MethodEntry, MethodKind, MethodTable, ModuleHolder};
 use crate::registry;
 
 struct ProxyState {
+    /// how async work hops back to the JS thread
+    dispatcher: Dispatcher,
     /// prototypes keyed by MethodTable address
     prototypes: HashMap<usize, JsiObject<'static>>,
     /// constructed module instances keyed by name (lazy singletons)
     instances: HashMap<String, JsiObject<'static>>,
 }
 
-impl Default for ProxyState {
-    fn default() -> Self {
-        Self {
-            prototypes: HashMap::new(),
-            instances: HashMap::new(),
-        }
-    }
-}
-
 /// Installs `globalThis.RustTurbo = { get(name) }` into the runtime.
 /// Call once per runtime (e.g. from the platform carrier's bindings
 /// installer, before the JS bundle runs).
-pub fn install(rt: &mut RuntimeHandle<'static>) -> anyhow::Result<()> {
+///
+/// Pass [`Dispatcher::call_invoker`] in production; `Dispatcher::Inline`
+/// runs async method bodies synchronously and is meant for single-threaded
+/// test harnesses.
+pub fn install(rt: &mut RuntimeHandle<'static>, dispatcher: Dispatcher) -> anyhow::Result<()> {
     let mut proxy = JsiObject::new(rt);
-    let mut state = ProxyState::default();
+    let mut state = ProxyState {
+        dispatcher,
+        prototypes: HashMap::new(),
+        instances: HashMap::new(),
+    };
 
     let get = JsiFn::from_host_fn(
         &PropName::new("get", rt),
@@ -71,7 +73,8 @@ pub fn install(rt: &mut RuntimeHandle<'static>) -> anyhow::Result<()> {
             let proto = match state.prototypes.get(&(table as *const _ as usize)) {
                 Some(p) => rt.clone(p),
                 None => {
-                    let p = build_prototype(table, rt)?;
+                    let dispatcher = state.dispatcher.clone();
+                    let p = build_prototype(table, &dispatcher, rt)?;
                     state
                         .prototypes
                         .insert(table as *const _ as usize, rt.clone(&p));
@@ -105,13 +108,14 @@ struct PropBuilder {
 /// no C++ API for it — jsi.cpp itself calls the JS function).
 fn build_prototype(
     table: &'static MethodTable,
+    dispatcher: &Dispatcher,
     rt: &mut RuntimeHandle<'static>,
 ) -> anyhow::Result<JsiObject<'static>> {
     let proto = JsiObject::new(rt);
 
     let mut props: BTreeMap<&'static str, PropBuilder> = BTreeMap::new();
     for entry in table.entries {
-        let f = make_entry_fn(table, entry, rt);
+        let f = make_entry_fn(table, entry, dispatcher.clone(), rt);
         let b = props.entry(entry.js_name).or_default();
         match entry.kind {
             MethodKind::Method => b.method = Some(f),
@@ -146,6 +150,7 @@ fn build_prototype(
 fn make_entry_fn(
     table: &'static MethodTable,
     entry: &'static MethodEntry,
+    dispatcher: Dispatcher,
     rt: &mut RuntimeHandle<'static>,
 ) -> JsiFn<'static> {
     let js_name = entry.js_name;
@@ -168,7 +173,7 @@ fn make_entry_fn(
             let holder = state
                 .get::<ModuleHolder>()
                 .ok_or_else(|| anyhow::anyhow!("`{}` called on an object that is not a RustTurbo module", js_name))?;
-            (entry.invoke)(&holder, rt, &args)
+            (entry.invoke)(&holder, &dispatcher, rt, &args)
         }),
         rt,
     )

@@ -23,10 +23,14 @@
 //! }
 //! ```
 
+pub mod dispatcher;
 pub mod holder;
+pub mod pool;
+pub mod promise;
 pub mod registry;
 mod proxy;
 
+pub use dispatcher::Dispatcher;
 pub use holder::{InvokeFn, MethodEntry, MethodKind, MethodTable, ModuleHolder, TurboModuleObject};
 pub use proxy::install;
 pub use registry::{lookup, register, registered_names, ModuleDescriptor, TURBO_MODULES};
@@ -36,4 +40,4 @@ pub use registry::{lookup, register, registered_names, ModuleDescriptor, TURBO_M
 // on linkme directly
 pub use linkme;
 
-pub use jsi_turbo_macros::RustTurboModule;
+pub use jsi_turbo_macros::{RustTurboModule, TurboStruct};

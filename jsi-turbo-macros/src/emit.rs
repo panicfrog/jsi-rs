@@ -5,7 +5,7 @@ use heck::ToLowerCamelCase;
 use proc_macro2::Span;
 use proc_macro_error2::emit_warning;
 use quote::{format_ident, quote};
-use syn::Ident;
+use syn::{Ident, ItemStruct};
 
 use crate::parse::{Item, MethodKind, ParsedModule};
 
@@ -29,7 +29,11 @@ pub fn emit_rust(m: &ParsedModule) -> proc_macro2::TokenStream {
     for item in items {
         let invoker_ident = format_ident!("__turbo_invoke_{}_{}", type_sym, item.rust_name);
 
-        invokers.push(emit_invoker(self_ty, module_name, &invoker_ident, item));
+        invokers.push(if item.is_async {
+            emit_async_invoker(self_ty, module_name, &invoker_ident, item)
+        } else {
+            emit_invoker(self_ty, module_name, &invoker_ident, item)
+        });
 
         let js_name = &item.js_name;
         let (kind, param_count) = match item.kind {
@@ -145,9 +149,11 @@ fn emit_invoker(
         #[doc(hidden)]
         pub fn #invoker_ident<'rt>(
             __holder: &::jsi_turbo::ModuleHolder,
+            __dispatcher: &::jsi_turbo::Dispatcher,
             __rt: &mut ::jsi::RuntimeHandle<'rt>,
             __args: &[::jsi::JsiValue<'rt>],
         ) -> ::anyhow::Result<::jsi::JsiValue<'rt>> {
+            let _ = __dispatcher; // sync methods don't hop threads
             let __this: ::std::sync::Arc<#self_ty> = __holder
                 .downcast::<#self_ty>()
                 .ok_or_else(|| ::anyhow::anyhow!(
@@ -160,6 +166,145 @@ fn emit_invoker(
             Ok(__value)
         }
     }
+}
+
+/// Async invoker: converts arguments to owned data, spawns the future via
+/// `jsi_turbo::promise` and returns a JS Promise. The body runs off the JS
+/// thread; resolve/reject hop back through the dispatcher.
+#[allow(clippy::too_many_arguments)]
+fn emit_async_invoker(
+    self_ty: &syn::Type,
+    module_name: &str,
+    invoker_ident: &Ident,
+    item: &Item,
+) -> proc_macro2::TokenStream {
+    let js_name = &item.js_name;
+    let method_name = &item.rust_name;
+    let param_count = item.params.len();
+
+    let mut arg_stmts = Vec::new();
+    for (idx, (name, ty)) in item.params.iter().enumerate() {
+        arg_stmts.push(quote! {
+            let #name: #ty = match __args.get(#idx) {
+                Some(__v) => ::jsi::FromValue::from_value(__v, __rt).ok_or_else(|| {
+                    ::anyhow::anyhow!(
+                        "argument `{}` of `{}.{}` could not be converted to {}",
+                        stringify!(#name),
+                        #module_name,
+                        #js_name,
+                        ::std::any::type_name::<#ty>(),
+                    )
+                })?,
+                None => ::anyhow::bail!(
+                    "not enough arguments: `{}.{}` expects {} argument(s)",
+                    #module_name,
+                    #js_name,
+                    #param_count,
+                ),
+            };
+        });
+    }
+
+    let param_names: Vec<_> = item.params.iter().map(|(n, _)| quote! { #n }).collect();
+    let ret_ty = &item.ret;
+
+    quote! {
+        #[doc(hidden)]
+        pub fn #invoker_ident<'rt>(
+            __holder: &::jsi_turbo::ModuleHolder,
+            __dispatcher: &::jsi_turbo::Dispatcher,
+            __rt: &mut ::jsi::RuntimeHandle<'rt>,
+            __args: &[::jsi::JsiValue<'rt>],
+        ) -> ::anyhow::Result<::jsi::JsiValue<'rt>> {
+            let __this: ::std::sync::Arc<#self_ty> = __holder
+                .downcast::<#self_ty>()
+                .ok_or_else(|| ::anyhow::anyhow!(
+                    "`{}.{}` called on a module instance of the wrong type",
+                    #module_name,
+                    #js_name,
+                ))?;
+            #(#arg_stmts)*
+            let __promise = ::jsi_turbo::promise::spawn::<#ret_ty, _, _>(__rt, __dispatcher, move || {
+                async move {
+                    <#self_ty>::#method_name(&*__this, #(#param_names),*).await
+                }
+            })
+            .map_err(|e| e.context(::std::concat!(#module_name, ".", #js_name, " failed")))?;
+            Ok(::jsi::IntoValue::into_value(__promise, __rt))
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// #[derive(TurboStruct)]
+
+pub fn emit_struct(input: &ItemStruct) -> Result<proc_macro2::TokenStream, ()> {
+    let syn::Fields::Named(fields) = &input.fields else {
+        proc_macro_error2::abort!(input, "#[derive(TurboStruct)] requires named fields");
+    };
+    let name = &input.ident;
+
+    let tokens = quote! {
+        impl<'rt> ::jsi::FromValue<'rt> for #name {
+            fn from_value(
+                value: &::jsi::JsiValue<'rt>,
+                rt: &mut ::jsi::RuntimeHandle<'rt>,
+            ) -> Option<Self> {
+                let value = rt.clone(value);
+                use ::jsi::DeserializeValue as _;
+                #name::deserialize_value(value, rt).ok()
+            }
+        }
+
+        impl<'rt> ::jsi::IntoValue<'rt> for #name {
+            fn into_value(self, rt: &mut ::jsi::RuntimeHandle<'rt>) -> ::jsi::JsiValue<'rt> {
+                use ::jsi::SerializeValue as _;
+                match self.serialize_value(rt) {
+                    Ok(v) => v,
+                    Err(e) => panic!("failed to serialize struct {}: {e}", ::std::stringify!(#name)),
+                }
+            }
+        }
+    };
+
+    // TS interface
+    let mut members = Vec::new();
+    let mut imports = Vec::new();
+    for f in &fields.named {
+        let fname = f.ident.as_ref().unwrap().to_string().to_lower_camel_case();
+        let ty = crate::ts_types::ts_type_of(&f.ty, &mut imports);
+        members.push(format!("  {fname}: {ty};"));
+    }
+
+    let content = format!(
+        "// @rust-turbo generated by #[derive(TurboStruct)] — DO NOT EDIT.\n{imports}\nexport interface {name} {{\n{members}\n}}\n",
+        imports = if imports.is_empty() {
+            String::new()
+        } else {
+            format!("{}\n", imports.join("\n"))
+        },
+        members = members.join("\n"),
+    );
+
+    if let Some(dir) = ts_dir() {
+        let path = dir.join("structs").join(format!("{}.ts", name));
+        if let Some(parent) = path.parent() {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                emit_warning!(proc_macro2::Span::call_site(), "jsi-turbo: could not create {}: {}", parent.display(), e);
+                return Ok(tokens);
+            }
+        }
+        match std::fs::read_to_string(&path) {
+            Ok(existing) if existing == content => {}
+            _ => {
+                if let Err(e) = std::fs::write(&path, content) {
+                    emit_warning!(proc_macro2::Span::call_site(), "jsi-turbo: could not write {}: {}", path.display(), e);
+                }
+            }
+        }
+    }
+
+    Ok(tokens)
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +374,8 @@ fn ts_content(m: &ParsedModule) -> String {
     let interface_name = capitalize(&name);
     let factory_name = format!("get{}", &interface_name);
 
+    let mut imports: Vec<String> = Vec::new();
+
     // merge getter/setter pairs on the same JS name
     let mut method_lines: Vec<String> = Vec::new();
     let mut prop_lines: std::collections::BTreeMap<String, (Option<String>, bool)> =
@@ -241,18 +388,22 @@ fn ts_content(m: &ParsedModule) -> String {
                 let params: Vec<String> = item
                     .params
                     .iter()
-                    .map(|(n, t)| format!("{}: {}", n.to_string().to_lower_camel_case(), crate::ts_types::ts_type(t)))
+                    .map(|(n, t)| {
+                        format!("{}: {}", n.to_string().to_lower_camel_case(), crate::ts_types::ts_type_of(t, &mut imports))
+                    })
                     .collect();
-                let ret = if item.ret_is_unit { "void".into() } else { crate::ts_types::ts_type(&item.ret) };
+                let ret = if item.ret_is_unit { "void".into() } else { crate::ts_types::ts_type_of(&item.ret, &mut imports) };
+                let ret = if item.is_async { format!("Promise<{ret}>") } else { ret };
                 method_lines.push(format!("  {}({}): {};", js, params.join(", "), ret));
             }
             MethodKind::Getter => {
+                let ty = crate::ts_types::ts_type_of(&item.ret, &mut imports);
                 prop_lines
                     .entry(js.clone())
-                    .or_insert((Some(crate::ts_types::ts_type(&item.ret)), false));
+                    .or_insert((Some(ty), false));
             }
             MethodKind::Setter => {
-                let ty = crate::ts_types::ts_type(&item.params[0].1);
+                let ty = crate::ts_types::ts_type_of(&item.params[0].1, &mut imports);
                 prop_lines
                     .entry(js.clone())
                     .and_modify(|(_, has_set)| *has_set = true)
@@ -271,9 +422,16 @@ fn ts_content(m: &ParsedModule) -> String {
         }
     }
 
+    let import_block = if imports.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n\n", imports.join("\n"))
+    };
+
     format!(
         "// @rust-turbo generated by #[RustTurboModule(\"{mod}\")] — DO NOT EDIT.\n\
          // Calls into the Rust module `{mod}` via the global RustTurbo proxy.\n\n\
+         {imports}\
          type RustTurboGlobal = {{ get(name: string): unknown }};\n\n\
          declare global {{\n  var RustTurbo: RustTurboGlobal | undefined;\n}}\n\n\
          function bootstrap(): RustTurboGlobal {{\n  \
@@ -285,6 +443,7 @@ fn ts_content(m: &ParsedModule) -> String {
          export interface {iface} {{\n{members}\n}}\n\n\
          export function {factory}(): {iface} {{\n  \
          return (globalThis.RustTurbo ?? bootstrap()).get('{mod}') as {iface};\n}}\n",
+        imports = import_block,
         mod = m.module_name,
         iface = interface_name,
         members = members.join("\n"),

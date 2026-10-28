@@ -5,7 +5,10 @@ mod common;
 
 use common::create_raw_runtime;
 use jsi::{JsiValue, RuntimeHandle};
-use jsi_turbo::{install, ModuleDescriptor, ModuleHolder, MethodEntry, MethodKind, MethodTable, TurboModuleObject, RustTurboModule};
+use jsi_turbo::{
+    install, Dispatcher, MethodEntry, MethodKind, MethodTable, ModuleDescriptor, ModuleHolder,
+    RustTurboModule, TurboModuleObject,
+};
 
 fn with_rt(f: impl FnOnce(&mut RuntimeHandle<'static>, &mut cxx::UniquePtr<jsi_sys::Runtime>)) {
     let mut raw = create_raw_runtime();
@@ -66,7 +69,7 @@ impl MathUtils {
 #[test]
 fn turbo_vertical_slice() {
     with_rt(|rt, raw| {
-        install(rt).unwrap();
+        install(rt, Dispatcher::Inline).unwrap();
 
         // the proxy is installed as a global
         assert_eq!(
@@ -150,6 +153,7 @@ impl Default for ManualModule {
 
 fn manual_value<'rt>(
     holder: &ModuleHolder,
+    _dispatcher: &jsi_turbo::Dispatcher,
     rt: &mut RuntimeHandle<'rt>,
     _args: &[JsiValue<'rt>],
 ) -> anyhow::Result<JsiValue<'rt>> {
@@ -188,7 +192,7 @@ fn turbo_manual_registration() {
     });
 
     with_rt(|rt, raw| {
-        install(rt).unwrap();
+        install(rt, Dispatcher::Inline).unwrap();
         assert_eq!(7., eval(rt, raw, "RustTurbo.get('Manual').value()").into_js::<f64>(rt));
     });
 }

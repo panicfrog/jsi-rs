@@ -1,11 +1,35 @@
 //! Proc macros for jsi-turbo. See `jsi_turbo` for the runtime.
 
 use proc_macro_error2::proc_macro_error;
-use syn::{parse_macro_input, ItemImpl, LitStr};
+use syn::{parse_macro_input, ItemImpl, ItemStruct, LitStr};
 
 mod emit;
 mod parse;
 mod ts_types;
+
+/// Derives JSI value conversions (via serde) and emits a TypeScript
+/// interface for a struct, so it can cross the TurboModule boundary as a
+/// typed parameter/return value:
+///
+/// ```no_run
+/// # use serde::{Serialize, Deserialize};
+/// # use jsi_turbo::TurboStruct;
+/// #[derive(Serialize, Deserialize, TurboStruct)]
+/// pub struct Point { pub x: f64, pub y: f64 }
+/// ```
+///
+/// Requires `Serialize` + `Deserialize` (from serde) on the same struct.
+/// Generates `impl FromValue` / `impl IntoValue` and writes
+/// `<crate>/generated/rust-turbo/structs/<Name>.ts`.
+#[proc_macro_error]
+#[proc_macro_derive(TurboStruct)]
+pub fn turbo_struct(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as ItemStruct);
+    match emit::emit_struct(&input) {
+        Ok(tokens) => proc_macro::TokenStream::from(tokens),
+        Err(()) => proc_macro::TokenStream::new(),
+    }
+}
 
 /// Defines a Rust TurboModule: the annotated impl block is the module's spec.
 ///

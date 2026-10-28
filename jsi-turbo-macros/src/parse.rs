@@ -17,6 +17,8 @@ pub struct Item {
     /// Name JavaScript sees
     pub js_name: String,
     pub kind: MethodKind,
+    /// Whether this is an `async fn` (exposed to JS as a Promise)
+    pub is_async: bool,
     /// User parameters (excluding `&self` and the optional runtime handle)
     pub params: Vec<(Ident, Type)>,
     /// Whether the method takes a `&mut RuntimeHandle` parameter
@@ -129,14 +131,7 @@ impl syn::parse::Parse for TurboHelper {
 }
 
 fn parse_method(f: &mut ImplItemFn) -> Option<Item> {
-    if let Some(a) = f.sig.asyncness {
-        emit_error!(
-            a,
-            "async methods are not supported by #[RustTurboModule] yet";
-            note = "they will be exposed as Promises in an upcoming phase"
-        );
-        return None;
-    }
+    let is_async = f.sig.asyncness.is_some();
 
     // helper attribute
     let mut helper: Option<Helper> = None;
@@ -173,6 +168,14 @@ fn parse_method(f: &mut ImplItemFn) -> Option<Item> {
         };
         let is_rt = type_is_runtime_handle(&pt.ty);
         if is_rt {
+            if is_async {
+                emit_error!(
+                    pt,
+                    "async methods cannot take a RuntimeHandle";
+                    note = "the body runs on a worker thread and must not touch JSI; convert values before awaiting"
+                );
+                return None;
+            }
             if !takes_rt && params.is_empty() {
                 takes_rt = true;
                 continue;
@@ -188,11 +191,12 @@ fn parse_method(f: &mut ImplItemFn) -> Option<Item> {
                 return None;
             }
         };
-        if !crate::ts_types::is_supported_param_type(&pt.ty) {
+        let is_jsi = crate::ts_types::is_jsi_handle_type(&pt.ty);
+        if is_jsi && is_async {
             emit_error!(
                 pt,
-                "unsupported parameter type `{}`", crate::ts_types::render_type(&pt.ty);
-                note = "supported: f64, i32, u32, usize, isize, bool, String, Vec<T>, Option<T>, JsiValue, JsiObject"
+                "async methods cannot take JSI handle types (`{}`)", crate::ts_types::render_type(&pt.ty);
+                note = "the body runs on a worker thread and must only touch owned Rust data"
             );
             return None;
         }
@@ -211,11 +215,11 @@ fn parse_method(f: &mut ImplItemFn) -> Option<Item> {
         ReturnType::Type(_, ty) => match result_inner(ty) {
             Some(inner) => {
                 let is_unit = type_is_unit(inner);
-                if !is_unit && !crate::ts_types::is_supported_return_type(inner) {
+                if !is_unit && is_async && crate::ts_types::is_jsi_handle_type(inner) {
                     emit_error!(
                         ty,
-                        "unsupported return type `{}`", crate::ts_types::render_type(inner);
-                        note = "supported: f64, i32, u32, usize, isize, bool, String, Vec<T>, Option<T>, JsiValue, JsiObject, ()"
+                        "async methods cannot return JSI handle types (`{}`)", crate::ts_types::render_type(inner);
+                        note = "convert to owned Rust data; the value crosses back on the JS thread"
                     );
                     return None;
                 }
@@ -234,12 +238,20 @@ fn parse_method(f: &mut ImplItemFn) -> Option<Item> {
     // shape checks per kind
     match &helper {
         Helper::Getter(_) => {
+            if is_async {
+                emit_error!(f.sig.ident, "getters cannot be async");
+                return None;
+            }
             if !params.is_empty() {
                 emit_error!(f.sig.inputs, "getters cannot take parameters (besides the runtime handle)");
                 return None;
             }
         }
         Helper::Setter(_) => {
+            if is_async {
+                emit_error!(f.sig.ident, "setters cannot be async");
+                return None;
+            }
             if params.len() != 1 {
                 emit_error!(f.sig.inputs, "setters take exactly one value parameter");
                 return None;
@@ -273,6 +285,7 @@ fn parse_method(f: &mut ImplItemFn) -> Option<Item> {
         rust_name: f.sig.ident.clone(),
         js_name,
         kind,
+        is_async,
         params,
         takes_rt,
         ret,
