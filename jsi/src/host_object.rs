@@ -278,7 +278,7 @@ unsafe impl<'rt> Send for SharedJsiUserHostObject<'rt> {}
 /// macro. Users must implement this for their host object type to provide an
 /// executor that drives `JsTaskCallback` futures.
 pub trait AsyncUserHostObject {
-    fn spawn(task: JsTaskCallback);
+    fn spawn<'rt>(task: JsTaskCallback<'rt>);
 
     fn invoke(cb: JsCallback<'static>);
 }
