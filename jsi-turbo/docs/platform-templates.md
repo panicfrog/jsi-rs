@@ -1,7 +1,7 @@
 # 设计:可发布的平台模板(P2)——零胶水接入
 
-状态:草案。参考 Nitro(v0.37.1)的构建集成方式调研结论,
-2026-10-29 记录。
+状态:方案定案(2026-10-29 spike 后更新,见文末「共存性 spike 结论」)。
+参考 Nitro(v0.37.1)的构建集成方式调研结论。
 
 ## 问题
 
@@ -111,3 +111,32 @@ npm 包名建议 `create-rust-turbo` / `<module>-turbo` 约定。
    验证 linkme 切片按包各自可见、`RustTurbo` 代理多次 install 的
    名字空间合并;
 5. 与 crates.io 路线的指路错误联动(build.rs 报错指向 npm 包文档)。
+
+## 共存性 spike 结论(2026-10-29)
+
+两个独立自包含 `.a`(各自依赖完整 jsi-turbo)链进同一 iOS 二进制:
+
+- **无 duplicate symbol**:静态归档按需拉入天然去重——符号先解析者
+  入表,后到归档的重复定义成员不再被拉入,运行时只链一份;
+- **linkme section 合并**:两包的模块条目都进最终 slice,两个 force
+  锚都被链入,模块正常注册;
+- **约束**:同 app 内所有包必须依赖同一 jsi-turbo 版本(运行时只保
+  留一份;聚合构建下由 cargo 统一解析天然保证)。
+
+## 形态定案:分发自包含,构建聚合
+
+由此采用 Nitro 的核心库模式(而非每包预构建 `.a`):
+
+- **`react-native-rust-turbo` 核心 npm 包(每 app 一份)**:carrier +
+  单个 `RustTurbo` pod/TurboModule;构建钩子(pod `script_phase` /
+  Android gradle task)扫描 `node_modules` 中带 rust-turbo 标记的
+  模块包 → 生成聚合 superlib(依赖 + FORCE_LINK)→ 一次 cargo 构建
+  出单 `.a`(自动注入 `JSI_DIR`/`REACT_NATIVE_DIR`,见
+  [local-dependencies.md](local-dependencies.md));
+- **模块 npm 包(N 份,纯源码)**:Rust crate 源码 + 宏生成的 TS +
+  `package.json` 元数据(crate 路径);不含平台文件、不含预构建产物;
+- 用户侧:`npm install react-native-rust-turbo <module>` 即用,走 RN
+  标准 autolinking,零拷贝、零 Podfile/CMake 修改。
+
+单次 cargo 构建的额外收益:依赖图统一解析(版本一致性)、增量构建
+一次跑完、无跨归档符号解析的隐式依赖。
