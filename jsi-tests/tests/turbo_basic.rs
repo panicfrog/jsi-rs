@@ -236,3 +236,89 @@ fn turbo_ts_file_emitted() {
     assert!(content.contains("sum(nums: number[]): number;"), "{content}");
     assert!(content.contains("maybeDouble(v: number | null): number | null;"), "{content}");
 }
+
+// A module holding native memory the JS GC cannot see; its
+// `turbo_external_size` override reports the size so the proxy can pass it
+// to `setExternalMemoryPressure`. Methods must behave normally alongside.
+pub struct BigBuffer {
+    _data: Vec<u8>,
+}
+
+impl Default for BigBuffer {
+    fn default() -> Self {
+        Self { _data: vec![0u8; 1024 * 1024] }
+    }
+}
+
+impl BigBuffer {
+    // inherent method shadows the trait's default, exactly how a user
+    // overrides it inside the `#[RustTurboModule]` impl block
+    pub fn turbo_external_size(&self) -> usize {
+        self._data.len()
+    }
+}
+
+#[RustTurboModule("BigBuffer")]
+impl BigBuffer {
+    pub fn size_mb(&self, _rt: &mut RuntimeHandle) -> anyhow::Result<f64> {
+        Ok(self._data.len() as f64 / 1024. / 1024.)
+    }
+}
+
+#[test]
+fn turbo_proxy_diagnostics() {
+    with_rt(|rt, raw| {
+        install(rt, Dispatcher::Inline).unwrap();
+
+        // names(): every registered module, sorted
+        assert_eq!(
+            "function",
+            eval(rt, raw, "typeof RustTurbo.names").into_js::<String>(rt)
+        );
+        let names: Vec<String> = eval(rt, raw, "RustTurbo.names()").into_js(rt);
+        assert!(names.contains(&"MathUtils".to_string()), "got: {names:?}");
+        assert!(names.contains(&"BigBuffer".to_string()), "got: {names:?}");
+
+        // has(name)
+        assert!(eval(rt, raw, "RustTurbo.has('MathUtils')").into_js::<bool>(rt));
+        assert!(!eval(rt, raw, "RustTurbo.has('NoSuchModule')").into_js::<bool>(rt));
+
+        // version / buildType
+        let version: String = eval(rt, raw, "RustTurbo.version").into_js(rt);
+        assert!(!version.is_empty());
+        assert_eq!(
+            if cfg!(debug_assertions) { "debug" } else { "release" },
+            eval(rt, raw, "RustTurbo.buildType").into_js::<String>(rt)
+        );
+
+        // debug builds tag instances with a private __type marker
+        if cfg!(debug_assertions) {
+            assert_eq!(
+                "RustTurboModule<MathUtils>",
+                eval(rt, raw, "RustTurbo.get('MathUtils').__type").into_js::<String>(rt)
+            );
+        }
+    });
+}
+
+#[test]
+fn turbo_external_memory_pressure() {
+    with_rt(|rt, raw| {
+        install(rt, Dispatcher::Inline).unwrap();
+
+        // a module with a non-zero turbo_external_size reports 1 MiB to the
+        // JS GC and behaves completely normally
+        assert_eq!(1., eval(rt, raw, "RustTurbo.get('BigBuffer').sizeMb()").into_js::<f64>(rt));
+        // singleton unaffected by the reporting
+        assert!(
+            eval(rt, raw, "RustTurbo.get('BigBuffer') === RustTurbo.get('BigBuffer')").into_js::<bool>(rt)
+        );
+        // __type still set alongside the pressure report
+        if cfg!(debug_assertions) {
+            assert_eq!(
+                "RustTurboModule<BigBuffer>",
+                eval(rt, raw, "RustTurbo.get('BigBuffer').__type").into_js::<String>(rt)
+            );
+        }
+    });
+}

@@ -11,6 +11,9 @@ use crate::dispatcher::Dispatcher;
 pub struct ModuleHolder {
     inner: Arc<dyn std::any::Any + Send + Sync>,
     table: &'static MethodTable,
+    /// Type-erased `T::turbo_external_size`, captured at construction so the
+    /// proxy can report the size to the JS GC without knowing `T`.
+    external_size: fn(&Arc<dyn std::any::Any + Send + Sync>) -> usize,
 }
 
 impl ModuleHolder {
@@ -19,7 +22,20 @@ impl ModuleHolder {
         Ok(Self {
             inner: Arc::new(T::__turbo_construct()?),
             table: T::__turbo_method_table(),
+            external_size: |inner: &Arc<dyn std::any::Any + Send + Sync>| {
+                inner
+                    .clone()
+                    .downcast::<T>()
+                    .map(|t| t.turbo_external_size())
+                    .unwrap_or(0)
+            },
         })
+    }
+
+    /// The module's [`TurboModuleObject::turbo_external_size`], for the JS
+    /// GC's external memory accounting.
+    pub fn external_size(&self) -> usize {
+        (self.external_size)(&self.inner)
     }
 
     pub fn table(&self) -> &'static MethodTable {
@@ -80,4 +96,61 @@ pub trait TurboModuleObject: Send + Sync + 'static {
     fn __turbo_method_table() -> &'static MethodTable
     where
         Self: Sized;
+
+    /// Bytes of native memory this instance keeps alive that the JS GC
+    /// cannot see (e.g. large buffers). Reported via
+    /// `jsi::Object::setExternalMemoryPressure` when the instance is handed
+    /// to JS, so Hermes collects the wrapper more eagerly. Override by
+    /// defining an inherent method with the same name next to the module's
+    /// other methods.
+    fn turbo_external_size(&self) -> usize {
+        0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Sized(usize);
+
+    impl TurboModuleObject for Sized {
+        fn __turbo_construct() -> anyhow::Result<Self> {
+            Ok(Sized(4096))
+        }
+        fn __turbo_method_table() -> &'static MethodTable {
+            static TABLE: MethodTable = MethodTable {
+                module_name: "Sized",
+                rust_type: "Sized",
+                entries: &[],
+            };
+            &TABLE
+        }
+        fn turbo_external_size(&self) -> usize {
+            self.0
+        }
+    }
+
+    struct Unsized;
+
+    impl TurboModuleObject for Unsized {
+        fn __turbo_construct() -> anyhow::Result<Self> {
+            Ok(Unsized)
+        }
+        fn __turbo_method_table() -> &'static MethodTable {
+            static TABLE: MethodTable = MethodTable {
+                module_name: "Unsized",
+                rust_type: "Unsized",
+                entries: &[],
+            };
+            &TABLE
+        }
+    }
+
+    #[test]
+    fn external_size_is_captured_per_type() {
+        assert_eq!(4096, ModuleHolder::new::<Sized>().unwrap().external_size());
+        // the default trait implementation reports zero
+        assert_eq!(0, ModuleHolder::new::<Unsized>().unwrap().external_size());
+    }
 }

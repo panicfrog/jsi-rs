@@ -83,7 +83,25 @@ pub fn install(rt: &mut RuntimeHandle<'static>, dispatcher: Dispatcher) -> anyho
             };
 
             let obj = JsiObject::create_with_prototype(&proto.as_value(rt), rt);
+            // report native memory to the JS GC before the holder becomes
+            // unreachable from Rust (Nitro does the same when handing a
+            // hybrid object to JS)
+            let external_size = holder.external_size();
             obj.set_rust_native_state(holder, rt);
+            if external_size > 0 {
+                obj.set_external_memory_pressure(external_size, rt);
+            }
+            #[cfg(debug_assertions)]
+            {
+                // a private marker so debuggers can tell these objects apart
+                // from plain empty objects (Nitro's `__type` pattern)
+                let mut d = JsiObject::new(rt);
+                d.set(PropName::new("value", rt), &JsiValue::new_string(&format!("RustTurboModule<{name}>"), rt), rt);
+                d.set(PropName::new("writable", rt), &JsiValue::new_bool(false), rt);
+                d.set(PropName::new("enumerable", rt), &JsiValue::new_bool(true), rt);
+                d.set(PropName::new("configurable", rt), &JsiValue::new_bool(true), rt);
+                define_property(rt, &obj, "__type", &d)?;
+            }
             state.instances.insert(name.clone(), rt.clone(&obj));
             Ok(obj.into_value(rt))
         }),
@@ -91,6 +109,43 @@ pub fn install(rt: &mut RuntimeHandle<'static>, dispatcher: Dispatcher) -> anyho
     );
 
     proxy.set(PropName::new("get", rt), &get.as_value(rt), rt);
+
+    // diagnostics (Nitro's HybridNitroModulesProxy pattern)
+    let names = JsiFn::from_host_fn(
+        &PropName::new("names", rt),
+        0,
+        Box::new(move |_this, _args, rt| {
+            let names: Vec<String> = registry::registered_names().into_iter().map(Into::into).collect();
+            Ok(names.into_value(rt))
+        }),
+        rt,
+    );
+    proxy.set(PropName::new("names", rt), &names.as_value(rt), rt);
+
+    let has = JsiFn::from_host_fn(
+        &PropName::new("has", rt),
+        1,
+        Box::new(move |_this, mut args, rt| {
+            let name: String = match args.len() {
+                1 => args
+                    .remove(0)
+                    .try_into_js(rt)
+                    .context("RustTurbo.has expects a module name string")?,
+                _ => bail!("RustTurbo.has expects exactly one argument (the module name)"),
+            };
+            Ok(JsiValue::new_bool(registry::lookup(&name).is_some()))
+        }),
+        rt,
+    );
+    proxy.set(PropName::new("has", rt), &has.as_value(rt), rt);
+
+    proxy.set(PropName::new("version", rt), &JsiValue::new_string(env!("CARGO_PKG_VERSION"), rt), rt);
+    proxy.set(
+        PropName::new("buildType", rt),
+        &JsiValue::new_string(if cfg!(debug_assertions) { "debug" } else { "release" }, rt),
+        rt,
+    );
+
     rt.global().set(PropName::new("RustTurbo", rt), &proxy.as_value(rt), rt);
     Ok(())
 }

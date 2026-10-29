@@ -15,6 +15,8 @@
 //! ```no_run
 //! # use jsi_turbo::RustTurboModule;
 //! # use jsi::RuntimeHandle;
+//! # #[derive(Default)]
+//! # pub struct MathUtils;
 //! #[RustTurboModule("MathUtils")]
 //! impl MathUtils {
 //!     fn add(&self, _rt: &mut RuntimeHandle, a: f64, b: f64) -> anyhow::Result<f64> {

@@ -69,7 +69,7 @@ cd example && npx tsc --noEmit          # 生成的 TS 类型
 
 按优先级排列;认领后照「做什么 / 验收」干即可,不确定的先开 issue 讨论。
 
-### P1 · 诊断 API
+### P1 · 诊断 API ✅(已完成)
 
 **背景**:模块注册信息只在 Rust 侧,JS 无法主动查询。新人最常见的坑
 (iOS 忘加 FORCE_LINK 导致模块静默消失)只能靠报错发现。
@@ -81,7 +81,7 @@ cd example && npx tsc --noEmit          # 生成的 TS 类型
 **验收**:`turbo_basic.rs` 增加断言;example 的 debug 构建里
 `RustTurbo.names()` 返回 `['TurboDemo']`。
 
-### P1 · `setExternalMemoryPressure` 钩子
+### P1 · `setExternalMemoryPressure` 钩子 ✅(已完成)
 
 **背景**:Hermes GC 看不见 NativeState 背后的原生内存,模块持有大
 缓冲时回收滞后。底层绑定已就绪

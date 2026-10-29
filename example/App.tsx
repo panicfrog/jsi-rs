@@ -37,6 +37,10 @@ function App(): React.JSX.Element {
           // async method: the body runs on the jsi-turbo worker pool and
           // the Promise resolves back on the JS thread
           ['await TurboDemo.slowAdd(20, 22)', String(await turbo.slowAdd(20, 22))],
+
+          // proxy diagnostics (P1): registry introspection
+          ['RustTurbo.names()', ((globalThis.RustTurbo as unknown as {names(): string[]}) ?? {names: () => []}).names().join(', ')],
+          ['RustTurbo.version / buildType', `${(globalThis.RustTurbo as unknown as {version: string}).version} / ${(globalThis.RustTurbo as unknown as {buildType: string}).buildType}`],
         ];
         if (!cancelled) {
           setRows(out);
