@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
-  s.name         = "JsiDemoModule"
+  s.name         = "RustTurbo"
   s.version      = "0.88.1"
-  s.summary      = "Demo React Native JSI module written in Rust with jsi-rs"
+  s.summary      = "RustTurbo carrier for React Native (Rust TurboModules via jsi-turbo)"
   s.license      = { :type => "MIT" }
   s.authors      = { "jsi-rs demo" => "demo@example.com" }
   s.homepage     = "https://github.com/laptou/jsi-rs"
