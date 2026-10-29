@@ -39,12 +39,11 @@ fn rust_turbo_install(rt: Pin<&mut jsi_sys::Runtime>, invoker: cxx::SharedPtr<js
 
     let (mut rt, invoker) = jsi::init(rt, invoker);
     let dispatcher = jsi_turbo::Dispatcher::call_invoker(invoker, raw);
-    if let Err(e) = jsi_turbo::install(&mut rt, dispatcher) {
-        eprintln!("rust-app: failed to install RustTurbo: {e:#}");
-        return false;
+    match jsi_turbo::install(&mut rt, dispatcher) {
+        Ok(()) => true,
+        Err(e) => {
+            eprintln!("rust-app: failed to install RustTurbo: {e:#}");
+            false
+        }
     }
-
-    // legacy host-object globals (the `RustDemo` object) coexist with the
-    // RustTurbo proxy in the same runtime
-    jsi_demo_module::jsi_demo_install(raw)
 }

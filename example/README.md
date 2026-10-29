@@ -85,8 +85,6 @@ npm start
 
 ## How the integration works
 
-Two generations of the jsi-rs API live side by side in this example:
-
 - **`TurboDemo` — `#[RustTurboModule]` (the jsi-turbo framework)**: the impl
   block in [`native/jsi-demo-module/src/lib.rs`](native/jsi-demo-module/src/lib.rs)
   is the entire spec — the macro generates the method table, linkme
@@ -97,12 +95,7 @@ Two generations of the jsi-rs API live side by side in this example:
   `rust_turbo_install` in the aggregate library; JS gets modules via the
   generated `getTurboDemo()` accessor, which lazily constructs the module
   through the `RustTurbo` proxy (`globalThis.RustTurbo.get('TurboDemo')`).
-- **`RustDemo` — legacy `#[host_object]` global**: kept as a regression
-  example of the original jsi-rs pattern; the aggregate library installs it
-  into the JS global scope on every runtime creation.
-
-Both are installed by the same carrier call (`rust_turbo_install`), which
-React Native invokes when the `RustTurbo` TurboModule is first requested —
-the generated TS bindings do that automatically.
+  React Native invokes the carrier when the `RustTurbo` TurboModule is first
+  requested — the generated TS bindings do that automatically.
 
 [cargo-ndk]: https://github.com/bbqsrc/cargo-ndk
