@@ -126,9 +126,11 @@ submodule 也能用。已通过独立工程 spike 完整验证:
   `RustTurbo.names()` 全部通过
 
 **剩余小尾巴**(体验完善,非阻塞):
-- build.rs 指路错误:`JSI_DIR` 未设且 vendored 缺失时报可操作的错误
-  (当前 panic 于找不到头),指向上面的 config.toml 方案
-- README 补「本地依赖接线」章节(上述完整步骤,spike 工程即范例)
+- ~~build.rs 指路错误~~ ✅ `JSI_DIR`/`REACT_NATIVE_DIR`/`FBJNI_DIR`
+  缺失或指错时给出可操作的报错(含 `.cargo/config.toml` 示例)
+- ~~README 补「本地依赖接线」章节~~ ✅ 见
+  [`docs/local-dependencies.md`](docs/local-dependencies.md)(完整步骤
+  + 常见报错表,从 spike 工程提炼)
 - ~~cargo package dry-run~~(随 crates.io 降级砍掉;设计文档
   [`docs/crates-io-publishing.md`](docs/crates-io-publishing.md) 保留
   供未来需要时参考)

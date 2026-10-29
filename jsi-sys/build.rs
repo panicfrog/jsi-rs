@@ -10,9 +10,38 @@ fn main() {
     // against: it is the ABI contract between host and engine. Defaults to the
     // copy in the vendored React Native tree that this branch is paired with.
     println!("cargo:rerun-if-env-changed=JSI_DIR");
-    let jsi_dir = env::var_os("JSI_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| pkg_base.join("vendor/react-native/packages/react-native/ReactCommon/jsi"));
+    let jsi_dir = match env::var_os("JSI_DIR") {
+        Some(dir) => {
+            let dir = PathBuf::from(dir);
+            if !dir.join("jsi/jsi.h").exists() {
+                panic!(
+                    "\njsi-sys: JSI_DIR is set to `{}`, but `jsi/jsi.h` was not found there.\n  \
+                     Point it at a directory containing jsi/jsi.h, e.g. your app's\n  \
+                     <app>/node_modules/react-native/ReactCommon/jsi\n",
+                    dir.display()
+                );
+            }
+            dir
+        }
+        None => {
+            let vendored = pkg_base
+                .join("vendor/react-native/packages/react-native/ReactCommon/jsi");
+            if !vendored.join("jsi/jsi.h").exists() {
+                panic!(
+                    "\njsi-sys: could not find jsi/jsi.h.\n  \
+                     This crate defaults to the React Native tree vendored in the jsi-rs\n  \
+                     checkout, which is missing — either run `git submodule update --init`\n  \
+                     there, or (recommended for apps outside that repo) point JSI_DIR at\n  \
+                     your app's copy:\n\n  \
+                     # <app>/native/rust-app/.cargo/config.toml\n  \
+                     [env]\n  \
+                     JSI_DIR = {{ value = \"../../node_modules/react-native/ReactCommon/jsi\", relative = true }}\n\n  \
+                     See jsi-turbo/docs/local-dependencies.md for the full wiring.\n"
+                );
+            }
+            vendored
+        }
+    };
 
     let includes: Vec<_> = IntoIterator::into_iter(vec![jsi_dir.clone(), pkg_base.join("include")])
         .map(|p| dunce::canonicalize(&p).expect(&format!("missing include path {:?}", p)))
