@@ -4,7 +4,7 @@ Pod::Spec.new do |s|
   s.summary      = "RustTurbo carrier for React Native (Rust TurboModules via jsi-turbo)"
   s.license      = { :type => "MIT" }
   s.authors      = { "jsi-rs demo" => "demo@example.com" }
-  s.homepage     = "https://github.com/laptou/jsi-rs"
+  s.homepage     = "https://github.com/panicfrog/jsi-rs"
   s.source       = { :path => "." }
   s.platform     = :ios, "15.1"
   s.source_files = "ios/*.{h,m,mm}"

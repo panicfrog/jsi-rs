@@ -1,8 +1,13 @@
 # `jsi-rs`
 
-This library makes it possible to write React Native JSI modules in Rust.
+Rust bindings and tooling for React Native's JSI, plus a Rust TurboModule
+framework. Write native modules in Rust, install them into the JS runtime
+through JSI, and call them from JavaScript — no bridge, no codegen required.
 
-For an example, check out the `example` folder.
+> This project was originally forked from
+> [laptou/jsi-rs](https://github.com/laptou/jsi-rs) (thank you
+> [@laptou](https://github.com/laptou) for the original work!) and is now
+> maintained as an independent repository.
 
 ## Getting Started
 
@@ -26,10 +31,14 @@ Native:
 | `jsi-sys` | `jsi.h` only | Low-level FFI to jsi |
 | `jsi` | `jsi-sys` | Safe API, `#[host_object]`, serde conversion, the `JsScheduler` trait for posting work to the JS thread |
 | `jsi-rn` | `jsi` + React Native | React Native's `CallInvoker` (implements `JsScheduler`), Android `CallInvokerHolder`, `jsi_rn::init` |
+| `jsi-turbo` | `jsi` (+ `jsi-rn` for async) | Rust TurboModule framework: `#[RustTurboModule("Name")]`, lazy `RustTurbo.get(name)` proxy, TypeScript bindings generation |
 | `jsi-macros` | — | Proc macros re-exported by `jsi` |
 
 Only depend on `jsi-rn` if you need React Native specific APIs such as the
 `CallInvoker`; a module that only installs bindings needs just `jsi`.
+
+The current status and roadmap of `jsi-turbo` live in
+[`jsi-turbo/ROADMAP.md`](jsi-turbo/ROADMAP.md).
 
 ### Build configuration
 
@@ -49,13 +58,29 @@ Only depend on `jsi-rn` if you need React Native specific APIs such as the
 the `CallInvoker` should call `jsi_rn::init(rt, call_invoker)` instead, which
 returns the same `(RuntimeHandle, CallInvoker)` pair as before.
 
+## Versioning
+
+Crate versions strictly mirror the React Native version they target (the
+current `main` tracks 0.88.1), because jsi.h must match the engine build
+exactly. Older React Native versions are supported through long-lived
+branches, frozen once stable:
+
+| Branch | React Native | Status |
+|---|---|---|
+| `rn-0.73` | 0.73 | frozen |
+| `rn-0.77.3` | 0.77.3 | frozen |
+| `main` | 0.88.1 | active development |
+
+When upgrading to a new React Native release, both the `react-native` and
+`hermes` submodules must be switched so that their copies of `jsi.h` are
+byte-identical.
+
 ## Contributing
 
-I wrote this code in winter 2022 as part of another project. A few months later,
-I have decided to release it to the world. However, I'm not planning to maintain
-it unless I encounter another project that requires it, so for now, the code is
-given to you as-is. Feel free to contribute PRs that would improve the API or
-stability of the library.
+This project is actively maintained. Bug reports, PRs and API discussions are
+all welcome — see the claimable tasks in [`jsi-turbo/ROADMAP.md`](jsi-turbo/ROADMAP.md)
+if you want a starting point. New features are developed on `feature/<name>`
+branches cut from `main`.
 
 ## Safety
 

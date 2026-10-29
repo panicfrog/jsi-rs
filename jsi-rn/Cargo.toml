@@ -6,7 +6,8 @@ rust-version = "1.74"
 links = "jsi-rn"
 license = "MIT"
 description = "React Native integration for jsi-rs: CallInvoker and runtime setup"
-repository = "https://github.com/laptou/jsi-rs/"
+authors = ["yongping.ye <burnedfrog@163.com>"]
+repository = "https://github.com/panicfrog/jsi-rs/"
 
 exclude = [
   "vendor/hermes"
