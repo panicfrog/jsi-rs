@@ -153,12 +153,16 @@ anyhow::Result<X>` 路径,不再要求 `Default`。
 invoker 里连同 `Dispatcher` 一起捕获,`Send + Sync` 可存进模块;
 `call(arg)`(serde 序列化)/ `call_with_no_args()`,CallInvoker
 路径跳回 JS 线程。已知事项:
-- **RN 集成注意**:JSI 回调里调 `setState` 在 React 批处理上下文
-  之外,渲染会被推迟到下一个触发点;demo 里用 `setTimeout(fn, 0)`
-  包裹解决(见 example/App.tsx)。后续可考虑 jsi-turbo 提供封装。
-- **在飞回调 vs reload**:reload 销毁 runtime 时,仍在 worker 线程
-  排队的回调会向已销毁的 runtime dispatch(UAF 风险),待设计
-  runtime teardown 失效协议。
+- ~~**RN 集成注意**:JSI 回调里调 `setState` 渲染会被推迟,需
+  `setTimeout` 包裹~~ **已证伪**(2026-10-29,iOS/Android 双端实测
+  RN 0.88.1):回调里的 `setState` 即时渲染——同步 tick ~1ms,
+  异步 tick(CallInvoker 跳回)每秒逐个刷屏,无需任何包装。原因:
+  RN 的 RuntimeScheduler 在每次 JS 任务后做 microtask checkpoint
+  并 updateRendering(源码级确认)。demo 已去掉 `setTimeout`。
+- **在飞回调 vs reload**(未证实的猜测,暂不处理):理论上 worker
+  线程上排队的回调可能在 runtime 销毁后 dispatch。实测(2026-10-29,
+  Android,12 次快速 reload、约 30 个在飞回调)未出现任何崩溃;
+  Nitro 也未做任何处理。除非将来出现真实崩溃报告,否则不投入。
 
 ## 已知约束与坑(设计决策记录)
 

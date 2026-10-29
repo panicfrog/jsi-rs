@@ -21,7 +21,7 @@ import {getTicker} from './native/jsi-demo-module/generated/rust-turbo/Ticker';
 function App(): React.JSX.Element {
   const [rows, setRows] = useState<Array<[string, string]>>([]);
   const [ticks, setTicks] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,14 +73,12 @@ function App(): React.JSX.Element {
 
     // P3: JS callbacks — Rust fires onTick listeners; fireTicksAsync runs
     // on the worker pool and the callback hops back to the JS thread.
-    // setState from a JSI callback runs outside React's batching context,
-    // so we route it through setTimeout to get a render per event
+    // Verified on iOS + Android (RN 0.88.1): setState inside the callback
+    // renders promptly, no setTimeout wrapper needed.
     const ticker = getTicker();
     ticker.onTick(e => {
       if (!cancelled) {
-        setTimeout(() => {
-          setTicks(prev => `${prev}${prev ? ', ' : ''}#${e.index}/${e.total}`);
-        }, 0);
+        setTicks(prev => `${prev}${prev ? ', ' : ''}#${e.index}/${e.total}`);
       }
     });
     const listeners = ticker.fireTicks(3);
@@ -105,6 +103,11 @@ function App(): React.JSX.Element {
           <Text style={styles.subtitle}>
             Every value below was computed in a Rust TurboModule (React Native 0.88.1 + Hermes)
           </Text>
+          {/* P3: JS callbacks — the ticker row keeps appending as Rust fires events */}
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Ticker.onTick(fireTicks 3 + async 6)</Text>
+            <Text style={styles.rowValue}>{ticks || 'waiting…'}</Text>
+          </View>
           {error !== null ? (
             <Text style={styles.error}>TurboDemo failed: {error}</Text>
           ) : rows.length === 0 ? (
@@ -117,10 +120,6 @@ function App(): React.JSX.Element {
                   <Text style={styles.rowValue}>{value}</Text>
                 </View>
               ))}
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>Ticker.onTick(fireTicks 3 + async 2)</Text>
-                <Text style={styles.rowValue}>{ticks || 'waiting…'}</Text>
-              </View>
             </>
           )}
         </View>
