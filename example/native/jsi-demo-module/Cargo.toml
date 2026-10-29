@@ -6,11 +6,12 @@ license = "MIT"
 publish = false
 
 [lib]
-# iOS consumes the staticlib, Android consumes the cdylib
-crate-type = ["staticlib", "cdylib"]
+# both platforms link the static library into the app's native build, where
+# React Native's jsi resolves the jsi symbols
+crate-type = ["staticlib"]
 
 [dependencies]
-jsi = { path = "../../../jsi" }
+# React Native already ships jsi, so don't compile a second copy of it
+jsi = { path = "../../../jsi", default-features = false, features = ["macros", "serde"] }
 anyhow = "1.0"
-cxx = "1.0"
 serde = { version = "1.0", features = ["derive"] }

@@ -9,7 +9,7 @@ use jsi::{
 fn with_rt(f: impl FnOnce(&mut RuntimeHandle<'static>, &mut cxx::UniquePtr<jsi_sys::Runtime>)) {
     let mut raw = create_raw_runtime();
     let ptr = unsafe { raw.as_mut().unwrap().get_unchecked_mut() as *mut _ };
-    let (mut rt, _invoker) = jsi::init(ptr, cxx::SharedPtr::null());
+    let mut rt = jsi::init(ptr);
     f(&mut rt, &mut raw);
 }
 

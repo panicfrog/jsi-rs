@@ -4,6 +4,7 @@ members = [
   "jsi-macros",
   "jsi-tests",
   "jsi",
+  "jsi-rn",
   "example/native/jsi-demo-module"
 ]
 resolver = "2"

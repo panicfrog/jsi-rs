@@ -12,11 +12,11 @@ use serde::{Deserialize, Serialize};
 ///
 /// Called by the platform glue whenever React Native creates a runtime: the
 /// iOS TurboModule's `installJSIBindingsWithRuntime:` and the Android
-/// TurboModule's `getBindingsInstaller()` installer. The call invoker is not
-/// needed for this demo (all calls are synchronous), so we pass a null one.
+/// TurboModule's `getBindingsInstaller()` installer. All calls in this demo
+/// are synchronous, so no scheduler (CallInvoker) is needed.
 #[no_mangle]
 pub extern "C" fn jsi_demo_install(runtime: *mut jsi::sys::Runtime) -> bool {
-    let (mut rt, _invoker) = jsi::init(runtime, cxx::SharedPtr::null());
+    let mut rt = jsi::init(runtime);
 
     let demo = RustDemo {
         version: env!("CARGO_PKG_VERSION").to_string(),

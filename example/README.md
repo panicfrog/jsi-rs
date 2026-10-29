@@ -25,19 +25,30 @@ of jsi-rs (see the crate versions in the workspace root).
 
 ## Build the Rust module
 
+The crate is part of the jsi-rs cargo workspace, so its build output lands in
+the workspace's `target/` directory (`../../../target` from the crate).
+
 ```bash
 cd native/jsi-demo-module
 
 # iOS simulator
 cargo build --target aarch64-apple-ios-sim
-cp target/aarch64-apple-ios-sim/debug/libjsi_demo_module.a libjsi-demo-module.a
+cp ../../../target/aarch64-apple-ios-sim/debug/libjsi_demo_module.a libjsi-demo-module.a
 
 # Android (arm64 emulator / device)
-cargo ndk build -t arm64-v8a -P 24 -o ../../android/app/src/main/jniLibs
+cargo ndk build -t arm64-v8a -P 24
+mkdir -p android/arm64-v8a
+cp ../../../target/aarch64-linux-android/debug/libjsi_demo_module.a android/arm64-v8a/
 ```
 
+Both platforms link the Rust **static library** into the app's own native
+build. The crate depends on `jsi` with `default-features = false`, which turns
+off the `bundled-jsi` feature: React Native already ships jsi, and the Rust
+library uses that copy instead of compiling a second one.
+
 For iOS device builds, also build `aarch64-apple-ios` and either lipo the two
-`.a` files together or update the podspec.
+`.a` files together or update the podspec. For more Android ABIs, build each
+target and copy it to `android/<ABI>/`.
 
 ## Run on iOS
 
@@ -58,7 +69,8 @@ UDID over the name, since names can match multiple simulator runtimes.
 
 ```bash
 cd android
-JAVA_HOME=<path-to-jdk-21> ./gradlew assembleDebug
+# build only the ABIs you built the Rust library for
+JAVA_HOME=<path-to-jdk-21> ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a
 adb install app/build/outputs/apk/debug/app-debug.apk
 adb reverse tcp:8081 tcp:8081   # let the app reach metro
 adb shell am start -n com.jsidemo/.MainActivity
@@ -75,15 +87,23 @@ npm start
 
 ## How the integration works
 
+On both platforms, `JsiDemoModule` is a TurboModule whose only job is to hand
+the JS runtime to Rust, using React Native's official JSI bindings hook. React
+Native runs that hook whenever the module is created, which happens again on
+every reload, so the bindings are always installed into the live runtime.
+
 - **iOS** — the pod (`JsiDemoModule.podspec`) vendors the Rust static library
   and compiles [`JsiDemoModule.mm`](native/jsi-demo-module/ios/JsiDemoModule.mm),
-  a blocking-synchronous native module whose `install()` grabs the JSI runtime
-  pointer (`RCTBridge.runtime`, which works in both bridge and bridgeless
-  modes) and calls the Rust `jsi_demo_install` entry point.
-- **Android** — `JsiDemoModule.kt` loads `libjsi_demo_module.so` and passes the
-  runtime pointer from `reactApplicationContext.javaScriptContextHolder` into
-  the Rust JNI entry point.
-- **JS** — `App.tsx` calls `NativeModules.JsiDemoModule.install()` once at
-  startup; after that the `RustDemo` global is available everywhere.
+  which implements `RCTTurboModuleWithJSIBindings`. Its
+  `installJSIBindingsWithRuntime:callInvoker:` calls the Rust
+  `jsi_demo_install` entry point.
+- **Android** — [`JsiDemoModule.kt`](android/app/src/main/java/com/jsidemo/JsiDemoModule.kt)
+  implements `TurboModuleWithJSIBindings`. Its `getBindingsInstaller()` is
+  implemented in C++ ([`JsiDemoBindings.cpp`](android/app/src/main/jni/JsiDemoBindings.cpp)),
+  because the installer (`BindingsInstallerHolder`) can only be created through
+  fbjni. The app's [`CMakeLists.txt`](android/app/src/main/jni/CMakeLists.txt)
+  links that file and the Rust static library into `libappmodules.so`.
+- **JS** — `App.tsx` calls `TurboModuleRegistry.get('JsiDemoModule')` once,
+  which creates the module and installs the `RustDemo` global.
 
 [cargo-ndk]: https://github.com/bbqsrc/cargo-ndk

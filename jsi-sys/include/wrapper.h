@@ -12,8 +12,6 @@
 #define JSI_WRAPPER_H
 #pragma once
 
-#include <ReactCommon/CallInvoker.h>
-
 #include <jsi/jsi.h>
 #include <rust/cxx.h>
 
@@ -489,24 +487,6 @@ std::unique_ptr<Value> Value_copy(const Value &self, Runtime &rt)
 {
   auto val = Value(rt, self);
   return std::make_unique<Value>(std::move(val));
-}
-
-// CallInvoker
-
-void call_invoker_trampoline(void *closure);
-
-void CallInvoker_invokeSync(
-    std::shared_ptr<facebook::react::CallInvoker> ci, void *closure
-)
-{
-  ci->invokeSync([closure]() { call_invoker_trampoline(closure); });
-}
-
-void CallInvoker_invokeAsync(
-    std::shared_ptr<facebook::react::CallInvoker> ci, void *closure
-)
-{
-  ci->invokeAsync([closure]() { call_invoker_trampoline(closure); });
 }
 
 // Utility fns

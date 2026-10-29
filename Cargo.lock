@@ -194,7 +194,6 @@ name = "jsi-demo-module"
 version = "0.88.1"
 dependencies = [
  "anyhow",
- "cxx",
  "jsi",
  "serde",
 ]
@@ -208,6 +207,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.56",
+]
+
+[[package]]
+name = "jsi-rn"
+version = "0.88.1"
+dependencies = [
+ "anyhow",
+ "cxx",
+ "cxx-build",
+ "dunce",
+ "jsi",
+ "log",
 ]
 
 [[package]]

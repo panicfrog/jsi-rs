@@ -7,12 +7,11 @@ project(appmodules)
 
 include(${REACT_ANDROID_DIR}/cmake-utils/ReactNative-application.cmake)
 
-# The Rust module, built by `cargo ndk` into jniLibs (see example/README.md).
-# It has no SONAME, so IMPORTED_NO_SONAME makes the linker record it as
-# `libjsi_demo_module.so` instead of a build machine path.
-add_library(jsi_demo_module SHARED IMPORTED)
+# The Rust module as a static library, built by `cargo ndk` and copied to
+# native/jsi-demo-module/android/<ABI>/ (see example/README.md). It is linked
+# into libappmodules.so, where React Native's jsi resolves its jsi symbols.
+add_library(jsi_demo_module STATIC IMPORTED)
 set_target_properties(jsi_demo_module PROPERTIES
-  IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}/libjsi_demo_module.so
-  IMPORTED_NO_SONAME TRUE)
+  IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../native/jsi-demo-module/android/${ANDROID_ABI}/libjsi_demo_module.a)
 
 target_link_libraries(${CMAKE_PROJECT_NAME} jsi_demo_module)
