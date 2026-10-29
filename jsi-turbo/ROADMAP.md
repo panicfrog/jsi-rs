@@ -109,16 +109,29 @@ Android gradle task),`JSI_DIR`/`REACT_NATIVE_DIR` 自动指向
 **验收**:新 app `npm install` 即用,不拷贝任何文件、不改
 Podfile/CMakeLists。
 
-### P2 · crates.io 发布路径(大)
+### P2 · 依赖独立(原「crates.io 发布」)✅ 核心已验证
 
-**背景**:jsi-turbo 依赖本仓库(git submodule 的 vendored RN 头),
-使用者无法从 crates.io 安装。
+**结论(2026-10-29)**:分发渠道不重要——crates.io 与本地 path 依赖
+等价,**本质诉求是代码独立**:使用者的工程脱离本仓库的 vendored
+submodule 也能用。已通过独立工程 spike 完整验证:
 
-**进展**:头文件注入机制已落地(`JSI_DIR` / `REACT_NATIVE_DIR` 环境变量,
-`bundled-jsi` feature 关闭后由 app 提供 jsi 符号)。设计讨论见
-[`docs/crates-io-publishing.md`](docs/crates-io-publishing.md),
-结论:纯 Rust 层先发,jsi-sys/jsi-rn 走「必填环境变量 + 指路错误」,
-派生任务列表在该文档末尾。
+- 仓库外 cli init 的原生 RN app(`npx @react-native-community/cli init`,
+  RN 0.88.1)+ 独立 cargo crate(superlib + 模块同 crate,path 依赖
+  jsi-rs 各 crate,`default-features = false` 关 `bundled-jsi`)
+- **`.cargo/config.toml` 的 `[env]` 相对路径**注入
+  `JSI_DIR`/`REACT_NATIVE_DIR` 指向 app 自己的
+  `node_modules/react-native`——所有 cargo 入口自动生效,零重复配置
+- podspec + carrier 三件套照抄 `jsi-turbo/carrier/`
+- iOS 模拟器端到端:getter/方法/async Promise(CallInvoker)/
+  `RustTurbo.names()` 全部通过
+
+**剩余小尾巴**(体验完善,非阻塞):
+- build.rs 指路错误:`JSI_DIR` 未设且 vendored 缺失时报可操作的错误
+  (当前 panic 于找不到头),指向上面的 config.toml 方案
+- README 补「本地依赖接线」章节(上述完整步骤,spike 工程即范例)
+- ~~cargo package dry-run~~(随 crates.io 降级砍掉;设计文档
+  [`docs/crates-io-publishing.md`](docs/crates-io-publishing.md) 保留
+  供未来需要时参考)
 
 ### P3 · 自定义构造器 ✅(已完成)
 
