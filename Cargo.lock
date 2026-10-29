@@ -257,6 +257,7 @@ dependencies = [
  "jsi-rn",
  "jsi-turbo-macros",
  "linkme",
+ "serde",
 ]
 
 [[package]]

@@ -112,24 +112,47 @@ fn emit_invoker(
     // argument extraction
     let mut arg_stmts = Vec::new();
     for (idx, (name, ty)) in item.params.iter().enumerate() {
-        arg_stmts.push(quote! {
-            let #name: #ty = match __args.get(#idx) {
-                Some(__v) => ::jsi::FromValue::from_value(__v, __rt).ok_or_else(|| {
-                    ::anyhow::anyhow!(
-                        "argument `{}` of `{}.{}` could not be converted to {}",
-                        stringify!(#name),
+        arg_stmts.push(if crate::ts_types::is_turbo_callback(ty) {
+            // JS callbacks are captured together with the dispatcher, so
+            // Rust can fire them later from any thread
+            quote! {
+                let #name: ::jsi_turbo::TurboCallback = match __args.get(#idx) {
+                    Some(__v) => ::jsi_turbo::TurboCallback::__capture(__v, __rt, __dispatcher).ok_or_else(|| {
+                        ::anyhow::anyhow!(
+                            "argument `{}` of `{}.{}` is not a function",
+                            stringify!(#name),
+                            #module_name,
+                            #js_name,
+                        )
+                    })?,
+                    None => ::anyhow::bail!(
+                        "not enough arguments: `{}.{}` expects {} argument(s)",
                         #module_name,
                         #js_name,
-                        ::std::any::type_name::<#ty>(),
-                    )
-                })?,
-                None => ::anyhow::bail!(
-                    "not enough arguments: `{}.{}` expects {} argument(s)",
-                    #module_name,
-                    #js_name,
-                    #param_count,
-                ),
-            };
+                        #param_count,
+                    ),
+                };
+            }
+        } else {
+            quote! {
+                let #name: #ty = match __args.get(#idx) {
+                    Some(__v) => ::jsi::FromValue::from_value(__v, __rt).ok_or_else(|| {
+                        ::anyhow::anyhow!(
+                            "argument `{}` of `{}.{}` could not be converted to {}",
+                            stringify!(#name),
+                            #module_name,
+                            #js_name,
+                            ::std::any::type_name::<#ty>(),
+                        )
+                    })?,
+                    None => ::anyhow::bail!(
+                        "not enough arguments: `{}.{}` expects {} argument(s)",
+                        #module_name,
+                        #js_name,
+                        #param_count,
+                    ),
+                };
+            }
         });
     }
 
@@ -194,24 +217,47 @@ fn emit_async_invoker(
 
     let mut arg_stmts = Vec::new();
     for (idx, (name, ty)) in item.params.iter().enumerate() {
-        arg_stmts.push(quote! {
-            let #name: #ty = match __args.get(#idx) {
-                Some(__v) => ::jsi::FromValue::from_value(__v, __rt).ok_or_else(|| {
-                    ::anyhow::anyhow!(
-                        "argument `{}` of `{}.{}` could not be converted to {}",
-                        stringify!(#name),
+        arg_stmts.push(if crate::ts_types::is_turbo_callback(ty) {
+            // JS callbacks are captured together with the dispatcher and
+            // are Send, so async bodies may fire them from worker threads
+            quote! {
+                let #name: ::jsi_turbo::TurboCallback = match __args.get(#idx) {
+                    Some(__v) => ::jsi_turbo::TurboCallback::__capture(__v, __rt, __dispatcher).ok_or_else(|| {
+                        ::anyhow::anyhow!(
+                            "argument `{}` of `{}.{}` is not a function",
+                            stringify!(#name),
+                            #module_name,
+                            #js_name,
+                        )
+                    })?,
+                    None => ::anyhow::bail!(
+                        "not enough arguments: `{}.{}` expects {} argument(s)",
                         #module_name,
                         #js_name,
-                        ::std::any::type_name::<#ty>(),
-                    )
-                })?,
-                None => ::anyhow::bail!(
-                    "not enough arguments: `{}.{}` expects {} argument(s)",
-                    #module_name,
-                    #js_name,
-                    #param_count,
-                ),
-            };
+                        #param_count,
+                    ),
+                };
+            }
+        } else {
+            quote! {
+                let #name: #ty = match __args.get(#idx) {
+                    Some(__v) => ::jsi::FromValue::from_value(__v, __rt).ok_or_else(|| {
+                        ::anyhow::anyhow!(
+                            "argument `{}` of `{}.{}` could not be converted to {}",
+                            stringify!(#name),
+                            #module_name,
+                            #js_name,
+                            ::std::any::type_name::<#ty>(),
+                        )
+                    })?,
+                    None => ::anyhow::bail!(
+                        "not enough arguments: `{}.{}` expects {} argument(s)",
+                        #module_name,
+                        #js_name,
+                        #param_count,
+                    ),
+                };
+            }
         });
     }
 

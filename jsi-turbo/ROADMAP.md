@@ -137,11 +137,18 @@ anyhow::Result<X>` 路径,不再要求 `Default`。
 大数据双向传递不走 serde。`JsiArrayBuffer::data()` 已有,缺的是宏
 类型映射(`&[u8]` / 自定义 buffer 类型)+ 生命周期看护。
 
-### P3 · JS 回调参数
+### P3 · JS 回调参数 ✅(已完成)
 
-方法参数收 JS 函数并异步回推(事件场景)。依赖 CallInvoker
-(`Dispatcher` 已就绪),需要 `JsiFn` 参数的转换与线程安全封装
-(参照 Nitro 的 `AsyncJSCallback`)。
+方法参数收 JS 函数并异步回推(事件场景)。`TurboCallback`:宏在
+invoker 里连同 `Dispatcher` 一起捕获,`Send + Sync` 可存进模块;
+`call(arg)`(serde 序列化)/ `call_with_no_args()`,CallInvoker
+路径跳回 JS 线程。已知事项:
+- **RN 集成注意**:JSI 回调里调 `setState` 在 React 批处理上下文
+  之外,渲染会被推迟到下一个触发点;demo 里用 `setTimeout(fn, 0)`
+  包裹解决(见 example/App.tsx)。后续可考虑 jsi-turbo 提供封装。
+- **在飞回调 vs reload**:reload 销毁 runtime 时,仍在 worker 线程
+  排队的回调会向已销毁的 runtime dispatch(UAF 风险),待设计
+  runtime teardown 失效协议。
 
 ## 已知约束与坑(设计决策记录)
 

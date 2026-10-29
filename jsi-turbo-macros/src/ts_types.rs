@@ -19,6 +19,12 @@ pub fn is_jsi_handle_type(ty: &Type) -> bool {
     }
 }
 
+/// Whether the type is `TurboCallback` (a JS function captured as an event
+/// callback; handled specially by the invokers).
+pub fn is_turbo_callback(ty: &Type) -> bool {
+    matches!(last_segment(ty), Some(seg) if seg.ident == "TurboCallback")
+}
+
 /// The TypeScript type for a Rust type. Unknown named types are treated as
 /// TurboStruct references and add an import line to `imports`.
 pub fn ts_type_of(ty: &Type, imports: &mut Vec<String>) -> String {
@@ -42,6 +48,13 @@ pub fn ts_type_of(ty: &Type, imports: &mut Vec<String>) -> String {
                 .map(|t| ts_type_of(t, imports))
                 .unwrap_or_else(|| "any".into());
             format!("{inner} | null")
+        }
+        "TurboCallback" => {
+            // a JS function Rust can call later (event subscription)
+            let inner = generic_inner(seg)
+                .map(|t| ts_type_of(t, imports))
+                .unwrap_or_else(|| "any".into());
+            format!("(arg: {inner}) => void")
         }
         other => {
             // assumed #[derive(TurboStruct)] struct

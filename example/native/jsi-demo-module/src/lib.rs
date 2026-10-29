@@ -11,7 +11,7 @@
 //! ```
 
 use jsi::RuntimeHandle;
-use jsi_turbo::{RustTurboModule, TurboStruct};
+use jsi_turbo::{RustTurboModule, TurboCallback, TurboStruct};
 use serde::{Deserialize, Serialize};
 
 /// A struct that crosses the JSI boundary in both directions via serde.
@@ -61,4 +61,65 @@ impl TurboDemo {
     pub fn get_version(&self) -> anyhow::Result<String> {
         Ok(env!("CARGO_PKG_VERSION").into())
     }
+}
+
+/// An event-source module: JS subscribes with a function, Rust calls it
+/// later from wherever it likes (the call hops back to the JS thread via
+/// the CallInvoker).
+#[derive(Default)]
+pub struct Ticker {
+    listeners: std::sync::Mutex<Vec<TurboCallback>>,
+}
+
+#[RustTurboModule("Ticker")]
+impl Ticker {
+    pub fn on_tick(&self, cb: TurboCallback) -> anyhow::Result<()> {
+        self.listeners.lock().unwrap().push(cb);
+        Ok(())
+    }
+
+    /// Fires `count` ticks at each listener immediately (on the JS thread).
+    /// Returns the listener count.
+    pub fn fire_ticks(&self, count: f64) -> anyhow::Result<usize> {
+        let n = self.listeners.lock().unwrap().len();
+        self.fire(count, std::time::Duration::ZERO);
+        Ok(n)
+    }
+
+    /// Same, but the firing loop runs on the worker pool with a one-second
+    /// gap between ticks — the UI can be seen updating as each event hops
+    /// back to the JS thread through the dispatcher.
+    pub async fn fire_ticks_async(&self, count: f64) -> anyhow::Result<usize> {
+        let n = self.listeners.lock().unwrap().len();
+        self.fire(count, std::time::Duration::from_secs(1));
+        Ok(n)
+    }
+}
+
+impl Ticker {
+    fn fire(&self, count: f64, interval: std::time::Duration) {
+        for i in 0..count as usize {
+            if i > 0 {
+                std::thread::sleep(interval);
+            }
+            let listeners = self.listeners.lock().unwrap();
+            for cb in listeners.iter() {
+                cb.call(TickEvent {
+                    index: i as f64,
+                    total: count,
+                    at: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis() as f64,
+                });
+            }
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct TickEvent {
+    pub index: f64,
+    pub total: f64,
+    pub at: f64,
 }

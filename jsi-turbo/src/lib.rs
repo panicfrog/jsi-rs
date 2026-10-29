@@ -25,6 +25,7 @@
 //! }
 //! ```
 
+pub mod callback;
 pub mod dispatcher;
 pub mod holder;
 pub mod pool;
@@ -32,6 +33,7 @@ pub mod promise;
 pub mod registry;
 mod proxy;
 
+pub use callback::TurboCallback;
 pub use dispatcher::Dispatcher;
 pub use holder::{InvokeFn, MethodEntry, MethodKind, MethodTable, ModuleHolder, TurboModuleObject};
 pub use proxy::install;
