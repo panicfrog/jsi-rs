@@ -126,11 +126,13 @@ anyhow::Result<X>` 路径,不再要求 `Default`。
 `install` 在 debug 构建下对同名冲突断言并列出冲突的 Rust 类型;
 `registry::duplicate_names()` 供宿主启动时主动检查。
 
-### P3 · 嵌套对象(对象图)
+### P3 · 嵌套对象(对象图) ✅(已完成)
 
-方法返回另一个 Rust 对象(非 TurboModule 单例),TS 类型递归生成。
-需要对象身份(WeakObject 缓存,参照 Nitro 的 `_objectCache`)与 GC
-协议设计,建议先出设计文档。
+`#[TurboObject]`:非单例 Rust 对象,模块方法返回 → JS 持有
+(NativeState,GC 决定生命周期)→ 以 `Arc<T>` 参数传回(同一实例,
+引用语义)。与模块共用 prototype/NativeState/external_size/__type
+机制。设计取舍(v1:无 JS `===` 身份缓存、prototype 按次构建、
+对象方法仅 sync)见 [`docs/nested-objects.md`](docs/nested-objects.md)。
 
 ### P3 · ArrayBuffer 零拷贝 ✅(已完成)
 

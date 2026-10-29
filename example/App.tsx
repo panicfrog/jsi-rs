@@ -45,6 +45,18 @@ function App(): React.JSX.Element {
           ['TurboDemo.makeBuffer(4096).byteLength', String(turbo.makeBuffer(4096).byteLength)],
           ['TurboDemo.checksum(makeBuffer(4096))', String(turbo.checksum(turbo.makeBuffer(4096)))],
 
+          // P3: nested objects — a non-singleton Rust object held by JS;
+          // passing it back yields the same instance (reference semantics)
+          ...(() => {
+            const c = turbo.createCounter(10);
+            c.increment(2);
+            c.increment(3);
+            return [
+              ['Counter.increment(2), (3) → value', String(c.value)],
+              ['TurboDemo.readCounter(c)', String(turbo.readCounter(c))],
+            ] as Array<[string, string]>;
+          })(),
+
           // proxy diagnostics (P1): registry introspection
           ['RustTurbo.names()', ((globalThis.RustTurbo as unknown as {names(): string[]}) ?? {names: () => []}).names().join(', ')],
           ['RustTurbo.version / buildType', `${(globalThis.RustTurbo as unknown as {version: string}).version} / ${(globalThis.RustTurbo as unknown as {buildType: string}).buildType}`],

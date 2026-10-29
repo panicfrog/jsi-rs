@@ -112,7 +112,29 @@ fn emit_invoker(
     // argument extraction
     let mut arg_stmts = Vec::new();
     for (idx, (name, ty)) in item.params.iter().enumerate() {
-        arg_stmts.push(if crate::ts_types::is_turbo_callback(ty) {
+        arg_stmts.push(if let Some(inner) = crate::ts_types::arc_inner(ty) {
+            // an `Arc<TurboObject>` parameter: recover the same Rust
+            // instance from the JS object's native state (by reference)
+            quote! {
+                let #name: #ty = match __args.get(#idx) {
+                    Some(__v) => ::jsi_turbo::object::from_js::<#inner>(__v, __rt).ok_or_else(|| {
+                        ::anyhow::anyhow!(
+                            "argument `{}` of `{}.{}` is not a RustTurbo object of type {}",
+                            stringify!(#name),
+                            #module_name,
+                            #js_name,
+                            ::std::stringify!(#inner),
+                        )
+                    })?,
+                    None => ::anyhow::bail!(
+                        "not enough arguments: `{}.{}` expects {} argument(s)",
+                        #module_name,
+                        #js_name,
+                        #param_count,
+                    ),
+                };
+            }
+        } else if crate::ts_types::is_turbo_callback(ty) {
             // JS callbacks are captured together with the dispatcher, so
             // Rust can fire them later from any thread
             quote! {
@@ -390,6 +412,58 @@ pub fn emit_ts(m: &ParsedModule) {
     }
 }
 
+/// The interface member lines for a parsed impl block (methods, and
+/// getter/setter pairs merged into properties). Shared by module and
+/// object TS emission.
+fn ts_members(m: &ParsedModule, imports: &mut Vec<String>) -> Vec<String> {
+    // merge getter/setter pairs on the same JS name
+    let mut method_lines: Vec<String> = Vec::new();
+    let mut prop_lines: std::collections::BTreeMap<String, (Option<String>, bool)> =
+        std::collections::BTreeMap::new(); // js_name -> (ts type, has_setter)
+
+    for item in &m.items {
+        let js = &item.js_name;
+        match item.kind {
+            MethodKind::Method => {
+                let params: Vec<String> = item
+                    .params
+                    .iter()
+                    .map(|(n, t)| {
+                        format!("{}: {}", n.to_string().to_lower_camel_case(), crate::ts_types::ts_type_of(t, imports))
+                    })
+                    .collect();
+                let ret = if item.ret_is_unit { "void".into() } else { crate::ts_types::ts_type_of(&item.ret, imports) };
+                let ret = if item.is_async { format!("Promise<{ret}>") } else { ret };
+                method_lines.push(format!("  {}({}): {};", js, params.join(", "), ret));
+            }
+            MethodKind::Getter => {
+                let ty = crate::ts_types::ts_type_of(&item.ret, imports);
+                prop_lines
+                    .entry(js.clone())
+                    .or_insert((Some(ty), false));
+            }
+            MethodKind::Setter => {
+                let ty = crate::ts_types::ts_type_of(&item.params[0].1, imports);
+                prop_lines
+                    .entry(js.clone())
+                    .and_modify(|(_, has_set)| *has_set = true)
+                    .or_insert((Some(ty), true));
+            }
+        }
+    }
+
+    let mut members = method_lines;
+    for (js, (ty, has_setter)) in prop_lines {
+        let ty = ty.unwrap_or_else(|| "any".into());
+        if has_setter {
+            members.push(format!("  {}: {};", js, ty));
+        } else {
+            members.push(format!("  readonly {}: {};", js, ty));
+        }
+    }
+    members
+}
+
 fn ts_dir() -> Option<std::path::PathBuf> {
     if std::env::var_os("RUST_TURBO_NO_TS").is_some() {
         return None;
@@ -431,52 +505,7 @@ fn ts_content(m: &ParsedModule) -> String {
     let factory_name = format!("get{}", &interface_name);
 
     let mut imports: Vec<String> = Vec::new();
-
-    // merge getter/setter pairs on the same JS name
-    let mut method_lines: Vec<String> = Vec::new();
-    let mut prop_lines: std::collections::BTreeMap<String, (Option<String>, bool)> =
-        std::collections::BTreeMap::new(); // js_name -> (ts type, has_setter)
-
-    for item in &m.items {
-        let js = &item.js_name;
-        match item.kind {
-            MethodKind::Method => {
-                let params: Vec<String> = item
-                    .params
-                    .iter()
-                    .map(|(n, t)| {
-                        format!("{}: {}", n.to_string().to_lower_camel_case(), crate::ts_types::ts_type_of(t, &mut imports))
-                    })
-                    .collect();
-                let ret = if item.ret_is_unit { "void".into() } else { crate::ts_types::ts_type_of(&item.ret, &mut imports) };
-                let ret = if item.is_async { format!("Promise<{ret}>") } else { ret };
-                method_lines.push(format!("  {}({}): {};", js, params.join(", "), ret));
-            }
-            MethodKind::Getter => {
-                let ty = crate::ts_types::ts_type_of(&item.ret, &mut imports);
-                prop_lines
-                    .entry(js.clone())
-                    .or_insert((Some(ty), false));
-            }
-            MethodKind::Setter => {
-                let ty = crate::ts_types::ts_type_of(&item.params[0].1, &mut imports);
-                prop_lines
-                    .entry(js.clone())
-                    .and_modify(|(_, has_set)| *has_set = true)
-                    .or_insert((Some(ty), true));
-            }
-        }
-    }
-
-    let mut members = method_lines;
-    for (js, (ty, has_setter)) in prop_lines {
-        let ty = ty.unwrap_or_else(|| "any".into());
-        if has_setter {
-            members.push(format!("  {}: {};", js, ty));
-        } else {
-            members.push(format!("  readonly {}: {};", js, ty));
-        }
-    }
+    let members = ts_members(m, &mut imports);
 
     let import_block = if imports.is_empty() {
         String::new()
@@ -505,4 +534,115 @@ fn ts_content(m: &ParsedModule) -> String {
         members = members.join("\n"),
         factory = factory_name,
     )
+}
+
+// ---------------------------------------------------------------------------
+// #[TurboObject]
+
+/// Codegen for nested objects: method table + invokers + `IntoValue`
+/// (hand to JS) + `FromValue` for `Arc<Self>` (pass back by reference).
+/// No linkme registration and no force anchor — objects are created by
+/// user code, so the table is always reachable from the module's invoker.
+pub fn emit_object_rust(m: &ParsedModule) -> proc_macro2::TokenStream {
+    let ParsedModule {
+        module_name,
+        self_ty,
+        impl_block,
+        items,
+        type_sym,
+        ..
+    } = m;
+
+    let table_ident = format_ident!("__TURBO_TABLE_{}", type_sym.to_uppercase());
+
+    let mut invokers = Vec::new();
+    let mut table_entries = Vec::new();
+
+    for item in items {
+        let invoker_ident = format_ident!("__turbo_invoke_{}_{}", type_sym, item.rust_name);
+        invokers.push(emit_invoker(self_ty, module_name, &invoker_ident, item));
+
+        let js_name = &item.js_name;
+        let (kind, param_count) = match item.kind {
+            MethodKind::Method => (quote! { ::jsi_turbo::MethodKind::Method }, item.params.len()),
+            MethodKind::Getter => (quote! { ::jsi_turbo::MethodKind::Getter }, 0),
+            MethodKind::Setter => (quote! { ::jsi_turbo::MethodKind::Setter }, 1),
+        };
+        table_entries.push(quote! {
+            ::jsi_turbo::MethodEntry {
+                js_name: #js_name,
+                kind: #kind,
+                param_count: #param_count,
+                invoke: #invoker_ident,
+            }
+        });
+    }
+
+    quote! {
+        #impl_block
+
+        #[doc(hidden)]
+        #(#invokers)*
+
+        #[doc(hidden)]
+        pub static #table_ident: ::jsi_turbo::MethodTable = ::jsi_turbo::MethodTable {
+            module_name: #module_name,
+            rust_type: ::std::stringify!(#self_ty),
+            entries: &[#(#table_entries),*],
+        };
+
+        impl ::jsi_turbo::TurboModuleObject for #self_ty {
+            fn __turbo_construct() -> ::anyhow::Result<Self> {
+                Ok(<Self as ::std::default::Default>::default())
+            }
+            fn __turbo_method_table() -> &'static ::jsi_turbo::MethodTable {
+                &#table_ident
+            }
+        }
+
+        // handing an instance to JS: prototype + native state + memory
+        // pressure + debug __type, exactly like a module singleton
+        impl<'rt> ::jsi::IntoValue<'rt> for #self_ty {
+            fn into_value(self, rt: &mut ::jsi::RuntimeHandle<'rt>) -> ::jsi::JsiValue<'rt> {
+                match ::jsi_turbo::object::to_js(self, rt) {
+                    Ok(v) => v,
+                    Err(e) => panic!("failed to wrap {} for JS: {e:#}", ::std::stringify!(#self_ty)),
+                }
+            }
+        }
+    }
+}
+
+/// TS emission for nested objects: just the interface (no factory — the
+/// values arrive as method return values). Written next to the
+/// TurboStruct interfaces so the shared `import type` path works.
+pub fn emit_object_ts(m: &ParsedModule) {
+    let Some(dir) = ts_dir() else {
+        return;
+    };
+    let name = crate::ts_types::render_type(&m.self_ty);
+    let mut imports: Vec<String> = Vec::new();
+    let members = ts_members(m, &mut imports);
+
+    let content = format!(
+        "// @rust-turbo generated by #[TurboObject] — DO NOT EDIT.\n{imports}\nexport interface {name} {{\n{members}\n}}\n",
+        imports = if imports.is_empty() { String::new() } else { format!("{}\n", imports.join("\n")) },
+        members = members.join("\n"),
+    );
+
+    let path = dir.join("structs").join(format!("{}.ts", name));
+    if let Some(parent) = path.parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            emit_warning!(proc_macro2::Span::call_site(), "jsi-turbo: could not create {}: {}", parent.display(), e);
+            return;
+        }
+    }
+    match std::fs::read_to_string(&path) {
+        Ok(existing) if existing == content => {}
+        _ => {
+            if let Err(e) = std::fs::write(&path, content) {
+                emit_warning!(proc_macro2::Span::call_site(), "jsi-turbo: could not write {}: {}", path.display(), e);
+            }
+        }
+    }
 }

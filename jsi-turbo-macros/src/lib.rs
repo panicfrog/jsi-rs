@@ -104,3 +104,58 @@ pub fn RustTurboModule(attr: proc_macro::TokenStream, item: proc_macro::TokenStr
 
     proc_macro::TokenStream::from(emit::emit_rust(&parsed))
 }
+
+/// Defines a nested TurboObject: like a module, but not a global singleton.
+/// Module methods construct values of this type and return them to JS;
+/// JS holds the object (its Rust instance lives in native state, dropped by
+/// the GC) and can pass it back as an `Arc<Self>` parameter.
+///
+/// ```ignore
+/// #[TurboObject]
+/// impl Layer {
+///     pub fn add_point(&self, x: f64, y: f64) -> anyhow::Result<()>
+///     #[turbo(getter)]
+///     pub fn get_opacity(&self) -> anyhow::Result<f64>
+/// }
+///
+/// #[RustTurboModule("Canvas")]
+/// impl Canvas {
+///     pub fn create_layer(&self, rt: &mut RuntimeHandle, name: String) -> anyhow::Result<Layer>
+///     pub fn count_points(&self, rt: &mut RuntimeHandle, layer: Arc<Layer>) -> anyhow::Result<f64>
+/// }
+/// ```
+///
+/// Generates the method table and invokers (shared with modules), an
+/// `IntoValue` impl handing instances to JS and a `FromValue` impl for
+/// `Arc<Self>` (same instance, by reference). Methods are sync-only (async
+/// needs the dispatcher, which object wrapping cannot reach — see
+/// `jsi-turbo/docs/nested-objects.md`). TypeScript interfaces are emitted
+/// alongside TurboStruct ones in `generated/rust-turbo/structs/`.
+#[proc_macro_error]
+#[proc_macro_attribute]
+#[allow(non_snake_case)]
+pub fn TurboObject(attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    if !attr.is_empty() {
+        let span = proc_macro2::TokenStream::from(attr).into_iter().next().unwrap().span();
+        proc_macro_error2::abort!(span, "#[TurboObject] takes no arguments");
+    }
+    let impl_block = parse_macro_input!(item as ItemImpl);
+
+    let type_name = crate::ts_types::render_type(&impl_block.self_ty);
+    let parsed = match parse::parse_impl(&type_name, impl_block, None) {
+        Some(p) => p,
+        None => return proc_macro::TokenStream::new(),
+    };
+    for item in &parsed.items {
+        if item.is_async {
+            proc_macro_error2::abort!(
+                item.rust_name,
+                "#[TurboObject] methods cannot be async";
+                note = "async methods need the dispatcher, which object wrapping cannot reach; return plain data instead"
+            );
+        }
+    }
+
+    emit::emit_object_ts(&parsed);
+    proc_macro::TokenStream::from(emit::emit_object_rust(&parsed))
+}

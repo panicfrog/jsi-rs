@@ -25,6 +25,15 @@ pub fn is_turbo_callback(ty: &Type) -> bool {
     matches!(last_segment(ty), Some(seg) if seg.ident == "TurboCallback")
 }
 
+/// If the type is `Arc<T>`, the `T`.
+pub fn arc_inner(ty: &Type) -> Option<&Type> {
+    let seg = last_segment(ty)?;
+    if seg.ident != "Arc" {
+        return None;
+    }
+    generic_inner(seg)
+}
+
 /// The TypeScript type for a Rust type. Unknown named types are treated as
 /// TurboStruct references and add an import line to `imports`.
 pub fn ts_type_of(ty: &Type, imports: &mut Vec<String>) -> String {
@@ -56,6 +65,12 @@ pub fn ts_type_of(ty: &Type, imports: &mut Vec<String>) -> String {
                 .map(|t| ts_type_of(t, imports))
                 .unwrap_or_else(|| "any".into());
             format!("(arg: {inner}) => void")
+        }
+        "Arc" => {
+            // a #[TurboObject] passed back by reference — same JS type
+            generic_inner(seg)
+                .map(|t| ts_type_of(t, imports))
+                .unwrap_or_else(|| "any".into())
         }
         other => {
             // assumed #[derive(TurboStruct)] struct

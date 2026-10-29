@@ -32,6 +32,23 @@ impl ModuleHolder {
         })
     }
 
+    /// Wraps an already-constructed instance (nested `#[TurboObject]`
+    /// values created by module methods, as opposed to registry-constructed
+    /// module singletons).
+    pub fn with_instance<T: TurboModuleObject>(value: T) -> Self {
+        Self {
+            inner: Arc::new(value),
+            table: T::__turbo_method_table(),
+            external_size: |inner: &Arc<dyn std::any::Any + Send + Sync>| {
+                inner
+                    .clone()
+                    .downcast::<T>()
+                    .map(|t| t.turbo_external_size())
+                    .unwrap_or(0)
+            },
+        }
+    }
+
     /// The module's [`TurboModuleObject::turbo_external_size`], for the JS
     /// GC's external memory accounting.
     pub fn external_size(&self) -> usize {

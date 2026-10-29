@@ -28,9 +28,11 @@
 pub mod callback;
 pub mod dispatcher;
 pub mod holder;
+pub mod object;
 pub mod pool;
 pub mod promise;
 pub mod registry;
+mod prototype;
 mod proxy;
 
 pub use callback::TurboCallback;
@@ -44,4 +46,4 @@ pub use registry::{duplicate_names, lookup, register, registered_names, ModuleDe
 // on linkme directly
 pub use linkme;
 
-pub use jsi_turbo_macros::{RustTurboModule, TurboStruct};
+pub use jsi_turbo_macros::{RustTurboModule, TurboObject, TurboStruct};

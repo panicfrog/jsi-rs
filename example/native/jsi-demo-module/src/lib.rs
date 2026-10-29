@@ -11,7 +11,7 @@
 //! ```
 
 use jsi::{JsiArrayBuffer, RuntimeHandle};
-use jsi_turbo::{RustTurboModule, TurboCallback, TurboStruct};
+use jsi_turbo::{RustTurboModule, TurboCallback, TurboObject, TurboStruct};
 use serde::{Deserialize, Serialize};
 
 /// A struct that crosses the JSI boundary in both directions via serde.
@@ -81,6 +81,35 @@ impl TurboDemo {
         buf: JsiArrayBuffer<'rt>,
     ) -> anyhow::Result<f64> {
         Ok(buf.data(rt).iter().map(|&b| b as u64).sum::<u64>() as f64)
+    }
+
+    /// A nested object (not a singleton): JS holds it, calls methods on
+    /// it, and can pass it back — always the same Rust instance.
+    pub fn create_counter(&self, _rt: &mut RuntimeHandle, start: f64) -> anyhow::Result<Counter> {
+        Ok(Counter { value: std::sync::atomic::AtomicU64::new(start as u64) })
+    }
+
+    /// Reads the counter back out of the JS-held object (same instance).
+    pub fn read_counter(&self, _rt: &mut RuntimeHandle, counter: std::sync::Arc<Counter>) -> anyhow::Result<f64> {
+        Ok(counter.value.load(std::sync::atomic::Ordering::Relaxed) as f64)
+    }
+}
+
+#[derive(Default)]
+pub struct Counter {
+    value: std::sync::atomic::AtomicU64,
+}
+
+#[TurboObject]
+impl Counter {
+    pub fn increment(&self, by: f64) -> anyhow::Result<f64> {
+        Ok(self.value.fetch_add(by as u64, std::sync::atomic::Ordering::Relaxed) as f64
+            + by)
+    }
+
+    #[turbo(getter)]
+    pub fn get_value(&self) -> anyhow::Result<f64> {
+        Ok(self.value.load(std::sync::atomic::Ordering::Relaxed) as f64)
     }
 }
 
