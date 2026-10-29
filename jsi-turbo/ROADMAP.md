@@ -98,11 +98,16 @@ cd example && npx tsc --noEmit          # 生成的 TS 类型
 **背景**:carrier 目前是「拷贝文件」模式(每 app 一次),对使用者仍
 有接线成本。
 
-**做什么**:把 carrier 做成可发布的 pod / Android library(AAR 或
-maven 模块),superlib 参数化(podspec 用占位符指向用户产物);参考
-`example/native/rust-app` 的 bridge 形态。
+**怎么做**(设计见 [`docs/platform-templates.md`](docs/platform-templates.md),
+基于对 Nitro v0.37.1 构建集成的调研):仿 Nitro 的
+`+autolinking.{rb,gradle,cmake}` 模式——宏/构建脚本生成 carrier
+三件套和构建描述文件,npm 包携带 podspec + gradle 走 RN 标准
+autolinking;cargo 由生成的构建脚本触发(iOS `script_phase`,
+Android gradle task),`JSI_DIR`/`REACT_NATIVE_DIR` 自动指向
+`node_modules`。关键待决:多模块 `.a` 聚合 vs 多包共存。
 
-**验收**:新 app 不拷贝任何文件,只依赖发布的库 + 配置产物路径。
+**验收**:新 app `npm install` 即用,不拷贝任何文件、不改
+Podfile/CMakeLists。
 
 ### P2 · crates.io 发布路径(大)
 

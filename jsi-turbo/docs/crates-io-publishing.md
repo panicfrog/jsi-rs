@@ -1,6 +1,7 @@
 # 设计讨论:jsi-rs 上 crates.io 的发布路径
 
-状态:草案(P2)。结论见文末「建议路线」。
+状态:草案(P2)。结论见文末「建议路线」。平台模板(npm 侧)的
+姊妹设计见 [`platform-templates.md`](platform-templates.md)。
 
 ## 问题
 
