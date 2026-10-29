@@ -213,6 +213,7 @@ impl TurboModuleObject for ManualModule {
 fn turbo_manual_registration() {
     jsi_turbo::register(ModuleDescriptor {
         name: "Manual",
+        rust_type: "ManualModule",
         ctor: || ModuleHolder::new::<ManualModule>(),
     });
 
@@ -263,6 +264,68 @@ impl BigBuffer {
     pub fn size_mb(&self, _rt: &mut RuntimeHandle) -> anyhow::Result<f64> {
         Ok(self._data.len() as f64 / 1024. / 1024.)
     }
+}
+
+// A module constructed through a custom constructor (no `Default` needed).
+pub struct CountingService {
+    count: std::sync::atomic::AtomicU64,
+    label: String,
+}
+
+impl CountingService {
+    fn create(label: &str) -> anyhow::Result<Self> {
+        Ok(Self {
+            count: std::sync::atomic::AtomicU64::new(7),
+            label: label.to_string(),
+        })
+    }
+}
+
+#[RustTurboModule("CountingService", ctor = "CountingService::create_with_prefix")]
+impl CountingService {
+    pub fn next(&self) -> anyhow::Result<f64> {
+        Ok(self.count.fetch_add(1, std::sync::atomic::Ordering::Relaxed) as f64)
+    }
+
+    #[turbo(getter)]
+    pub fn get_label(&self) -> anyhow::Result<String> {
+        Ok(self.label.clone())
+    }
+}
+
+impl CountingService {
+    fn create_with_prefix() -> anyhow::Result<Self> {
+        Self::create("svc-")
+    }
+}
+
+#[test]
+fn turbo_custom_ctor() {
+    with_rt(|rt, raw| {
+        install(rt, Dispatcher::Inline).unwrap();
+
+        // the custom constructor ran: the counter starts at 7, not 0
+        assert_eq!(7., eval(rt, raw, "RustTurbo.get('CountingService').next()").into_js::<f64>(rt));
+        assert_eq!(8., eval(rt, raw, "RustTurbo.get('CountingService').next()").into_js::<f64>(rt));
+        // constructor argument made it through
+        assert_eq!(
+            "svc-",
+            eval(rt, raw, "RustTurbo.get('CountingService').label").into_js::<String>(rt)
+        );
+        // singleton: one construction, counter keeps counting
+        assert_eq!(
+            9.,
+            eval(rt, raw, "RustTurbo.get('CountingService') === RustTurbo.get('CountingService') ? RustTurbo.get('CountingService').next() : -1").into_js::<f64>(rt)
+        );
+    });
+}
+
+#[test]
+fn turbo_no_duplicate_names() {
+    // sanity check that the registry sees no name collisions in this binary;
+    // conflicts would also trip the debug assertion in `install`
+    let duplicates = jsi_turbo::duplicate_names();
+    assert!(duplicates.is_empty(), "unexpected duplicates: {duplicates:?}");
 }
 
 #[test]

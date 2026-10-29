@@ -35,7 +35,7 @@ mod proxy;
 pub use dispatcher::Dispatcher;
 pub use holder::{InvokeFn, MethodEntry, MethodKind, MethodTable, ModuleHolder, TurboModuleObject};
 pub use proxy::install;
-pub use registry::{lookup, register, registered_names, ModuleDescriptor, TURBO_MODULES};
+pub use registry::{duplicate_names, lookup, register, registered_names, ModuleDescriptor, TURBO_MODULES};
 
 // re-exported so `#[RustTurboModule]` expansions can reference
 // `::jsi_turbo::linkme::distributed_slice` without module crates depending

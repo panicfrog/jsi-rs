@@ -38,9 +38,11 @@ pub struct ParsedModule {
     pub items: Vec<Item>,
     /// Identifier-safe version of the type name for generated symbols
     pub type_sym: String,
+    /// Custom constructor path (`ctor = "Type::create"`), if given
+    pub ctor: Option<syn::Path>,
 }
 
-pub fn parse_impl(module_name: &str, mut impl_block: ItemImpl) -> Option<ParsedModule> {
+pub fn parse_impl(module_name: &str, mut impl_block: ItemImpl, ctor: Option<syn::Path>) -> Option<ParsedModule> {
     if impl_block.trait_.is_some() {
         abort!(impl_block.self_ty, "#[RustTurboModule] cannot be used on trait impls");
     }
@@ -99,6 +101,7 @@ pub fn parse_impl(module_name: &str, mut impl_block: ItemImpl) -> Option<ParsedM
         impl_block,
         items,
         type_sym,
+        ctor,
     })
 }
 

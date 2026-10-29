@@ -109,20 +109,22 @@ maven 模块),superlib 参数化(podspec 用占位符指向用户产物);参考
 **背景**:jsi-turbo 依赖本仓库(git submodule 的 vendored RN 头),
 使用者无法从 crates.io 安装。
 
-**做什么**:评估解耦方案——jsi-sys 允许使用 app 自带 RN 头
-(build.rs 环境变量注入 include 路径)或预生成 FFI 绑定。涉及
-`jsi-sys/build.rs` 与版本兼容策略,建议先写设计讨论再动手。
+**进展**:头文件注入机制已落地(`JSI_DIR` / `REACT_NATIVE_DIR` 环境变量,
+`bundled-jsi` feature 关闭后由 app 提供 jsi 符号)。设计讨论见
+[`docs/crates-io-publishing.md`](docs/crates-io-publishing.md),
+结论:纯 Rust 层先发,jsi-sys/jsi-rn 走「必填环境变量 + 指路错误」,
+派生任务列表在该文档末尾。
 
-### P3 · 自定义构造器
+### P3 · 自定义构造器 ✅(已完成)
 
-`#[RustTurboModule("X", ctor = "X::create")]`——宏目前只支持
-`Default`。改 `jsi-turbo-macros/src/{parse,emit}.rs`。
+`#[RustTurboModule("X", ctor = "X::create")]`——任意 `fn() ->
+anyhow::Result<X>` 路径,不再要求 `Default`。
 
-### P3 · 注册重名的 debug 断言
+### P3 · 注册重名的 debug 断言 ✅(已完成)
 
-同名模块重复注册(两个 crate 撞名)目前静默覆盖。在
-`registry::lookup` / `registered_names` 加 debug_assert + 报错列出
-冲突来源(Nitro 的做法)。
+`ModuleDescriptor` 带 `rust_type`;`registry::lookup` / `register` /
+`install` 在 debug 构建下对同名冲突断言并列出冲突的 Rust 类型;
+`registry::duplicate_names()` 供宿主启动时主动检查。
 
 ### P3 · 嵌套对象(对象图)
 

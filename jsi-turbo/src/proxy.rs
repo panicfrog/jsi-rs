@@ -33,6 +33,15 @@ struct ProxyState {
 /// runs async method bodies synchronously and is meant for single-threaded
 /// test harnesses.
 pub fn install(rt: &mut RuntimeHandle<'static>, dispatcher: Dispatcher) -> anyhow::Result<()> {
+    // surface duplicate registrations (two crates claiming the same module
+    // name) as early as possible instead of at first `get`
+    let duplicates = registry::duplicate_names();
+    debug_assert!(
+        duplicates.is_empty(),
+        "duplicate RustTurbo module names: {}",
+        duplicates.join("; ")
+    );
+
     let mut proxy = JsiObject::new(rt);
     let mut state = ProxyState {
         dispatcher,

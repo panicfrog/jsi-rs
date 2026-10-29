@@ -3,6 +3,40 @@
 use proc_macro_error2::proc_macro_error;
 use syn::{parse_macro_input, ItemImpl, ItemStruct, LitStr};
 
+/// The `#[RustTurboModule(...)]` attribute: `#[RustTurboModule("Name")]` or
+/// `#[RustTurboModule("Name", ctor = "Type::create")]`.
+struct ModuleAttr {
+    name: LitStr,
+    ctor: Option<LitStr>,
+}
+
+impl syn::parse::Parse for ModuleAttr {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let name: LitStr = input.parse()?;
+        let mut ctor = None;
+        while input.peek(syn::Token![,]) {
+            input.parse::<syn::Token![,]>()?;
+            let ident: syn::Ident = input.parse()?;
+            match ident.to_string().as_str() {
+                "ctor" => {
+                    input.parse::<syn::Token![=]>()?;
+                    let path: LitStr = input.parse()?;
+                    if ctor.replace(path).is_some() {
+                        return Err(syn::Error::new(ident.span(), "duplicate `ctor` option"));
+                    }
+                }
+                other => {
+                    return Err(syn::Error::new(
+                        ident.span(),
+                        format!("unknown option `{other}`, expected `ctor = \"path\"`"),
+                    ))
+                }
+            }
+        }
+        Ok(ModuleAttr { name, ctor })
+    }
+}
+
 mod emit;
 mod parse;
 mod ts_types;
@@ -44,16 +78,23 @@ pub fn turbo_struct(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// Methods must be `fn(&self, [rt: &mut RuntimeHandle,] args...) ->
 /// anyhow::Result<T>`; the `rt` parameter is optional. `#[turbo(getter)]` /
 /// `#[turbo(setter)]` expose methods as properties. Module types must be
-/// `Send + Sync + 'static` and implement `Default` (custom constructors are
-/// planned).
+/// `Send + Sync + 'static` and implement `Default`, or supply a custom
+/// constructor via `#[RustTurboModule("Name", ctor = "Type::create")]`
+/// (any `fn() -> anyhow::Result<Type>` path works).
 #[proc_macro_error]
 #[proc_macro_attribute]
 #[allow(non_snake_case)]
 pub fn RustTurboModule(attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let module_name = parse_macro_input!(attr as LitStr).value();
+    let attr = parse_macro_input!(attr as ModuleAttr);
     let impl_block = parse_macro_input!(item as ItemImpl);
 
-    let parsed = match parse::parse_impl(&module_name, impl_block) {
+    let ctor = attr.ctor.as_ref().map(|lit| {
+        syn::parse_str::<syn::Path>(&lit.value()).unwrap_or_else(|e| {
+            proc_macro_error2::abort!(lit, "invalid `ctor` path `{}`: {e}", lit.value())
+        })
+    });
+
+    let parsed = match parse::parse_impl(&attr.name.value(), impl_block, ctor) {
         Some(p) => p,
         None => return proc_macro::TokenStream::new(),
     };

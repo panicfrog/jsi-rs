@@ -16,11 +16,20 @@ pub fn emit_rust(m: &ParsedModule) -> proc_macro2::TokenStream {
         impl_block,
         items,
         type_sym,
+        ctor,
     } = m;
 
     let table_ident = format_ident!("__TURBO_TABLE_{}", type_sym.to_uppercase());
     let entry_ident = format_ident!("__TURBO_MODULE_{}", type_sym.to_uppercase());
     let force_ident = format_ident!("__jsi_turbo_force_{}", type_sym);
+
+    // `ctor = "Type::create"` overrides default construction
+    let construct = match ctor {
+        Some(path) => quote! { ::anyhow::Context::context(#path(), ::std::concat!(
+            "custom constructor of module ", #module_name, " failed"
+        )) },
+        None => quote! { Ok(<Self as ::std::default::Default>::default()) },
+    };
 
     // per-method erased invokers + table entries
     let mut invokers = Vec::new();
@@ -66,7 +75,7 @@ pub fn emit_rust(m: &ParsedModule) -> proc_macro2::TokenStream {
 
         impl ::jsi_turbo::TurboModuleObject for #self_ty {
             fn __turbo_construct() -> ::anyhow::Result<Self> {
-                Ok(<Self as ::std::default::Default>::default())
+                #construct
             }
             fn __turbo_method_table() -> &'static ::jsi_turbo::MethodTable {
                 &#table_ident
@@ -80,6 +89,7 @@ pub fn emit_rust(m: &ParsedModule) -> proc_macro2::TokenStream {
         #[linkme::distributed_slice(::jsi_turbo::TURBO_MODULES)]
         pub static #entry_ident: ::jsi_turbo::ModuleDescriptor = ::jsi_turbo::ModuleDescriptor {
             name: #module_name,
+            rust_type: ::std::stringify!(#self_ty),
             ctor: || ::jsi_turbo::ModuleHolder::new::<#self_ty>(),
         };
 
