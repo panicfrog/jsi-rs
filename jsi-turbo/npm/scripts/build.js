@@ -35,6 +35,7 @@ function parseArgs(argv) {
     else if (a === '--target') args.target = argv[++i];
     else if (a === '--release') args.release = true;
     else if (a === '--ndk') args.ndk = argv[++i];
+    else if (a === '--android-api') args.androidApi = argv[++i];
     else if (a === '--jsi-rs') args.jsiRs = argv[++i];
     else {
       console.error(`unknown argument: ${a}`);
@@ -59,13 +60,23 @@ function discover(appRoot) {
     console.error(`no node_modules at ${nm}; run npm install first`);
     process.exit(1);
   }
-  // scoped packages (@scope/name) live one level deeper
+  // scoped packages (@scope/name) live one level deeper; local "file:"
+  // installs are symlinks, which readdir dirents report as links, not dirs
+  const isDir = p => {
+    try {
+      return fs.statSync(p).isDirectory();
+    } catch {
+      return false;
+    }
+  };
   const dirs = [];
   for (const e of entries) {
-    if (!e.isDirectory() || e.name.startsWith('.')) continue;
+    if (e.name.startsWith('.')) continue;
+    const full = path.join(nm, e.name);
+    if (!isDir(full)) continue;
     if (e.name.startsWith('@')) {
-      for (const sub of fs.readdirSync(path.join(nm, e.name), {withFileTypes: true})) {
-        if (sub.isDirectory()) dirs.push(path.join(e.name, sub.name));
+      for (const sub of fs.readdirSync(full, {withFileTypes: true})) {
+        if (isDir(path.join(full, sub.name))) dirs.push(path.join(e.name, sub.name));
       }
     } else {
       dirs.push(e.name);
@@ -101,8 +112,11 @@ function snake(name) {
 }
 
 function generateSuperlib(appRoot, packages, jsiRsDir) {
-  const corePkg = path.resolve(__dirname, '..');
-  const genDir = path.join(corePkg, 'generated', 'rust-app');
+  // Keep generated build state OUT of the npm package directory: local
+  // "file:" installs are symlinks, and the RN autolinking CLI walks
+  // dependency trees — a cargo target/ dir inside the package makes it OOM.
+  // node_modules/.cache is the conventional, hidden-from-scanners location.
+  const genDir = path.join(appRoot, 'node_modules', '.cache', 'rust-turbo', 'rust-app');
   fs.mkdirSync(path.join(genDir, 'src'), {recursive: true});
   fs.mkdirSync(path.join(genDir, '.cargo'), {recursive: true});
 
@@ -229,6 +243,32 @@ function locateJsiRs(args, appRoot) {
   process.exit(1);
 }
 
+function ndkToolchainEnv(ndkDir, target, apiLevel) {
+  const prebuilt = path.join(ndkDir, 'toolchains', 'llvm', 'prebuilt');
+  let entries = [];
+  try {
+    entries = fs.readdirSync(prebuilt);
+  } catch {
+    console.error(`ndk toolchains dir not found at ${prebuilt} (wrong --ndk path?)`);
+    process.exit(1);
+  }
+  const hostTag = entries.find(e => fs.existsSync(path.join(prebuilt, e, 'bin')));
+  if (!hostTag) {
+    console.error(`no toolchain host dir under ${prebuilt}`);
+    process.exit(1);
+  }
+  const bin = path.join(prebuilt, hostTag, 'bin');
+  const api = apiLevel || 24;
+  const clang = `${target}${api}-clang`;
+  const env = {};
+  env[`CARGO_TARGET_${target.toUpperCase().replace(/-/g, '_')}_LINKER`] = path.join(bin, clang);
+  const envKey = target.replace(/-/g, '_');
+  env[`CC_${envKey}`] = path.join(bin, clang);
+  env[`CXX_${envKey}`] = path.join(bin, `${clang}++`);
+  env[`AR_${envKey}`] = path.join(bin, 'llvm-ar');
+  return env;
+}
+
 function main() {
   const args = parseArgs(process.argv);
   const appRoot = path.resolve(args.app);
@@ -250,7 +290,16 @@ function main() {
   const cargoArgs = ['build', '--manifest-path', path.join(genDir, 'Cargo.toml'), '--target', args.target];
   if (args.release) cargoArgs.push('--release');
   console.log(`cargo ${cargoArgs.join(' ')}`);
-  execFileSync('cargo', cargoArgs, {stdio: 'inherit'});
+  const env = {...process.env};
+  if (args.target.includes('android')) {
+    const ndk = args.ndk || process.env.ANDROID_NDK_HOME || process.env.NDK_HOME;
+    if (!ndk) {
+      console.error('Android builds need --ndk <dir> (or ANDROID_NDK_HOME)');
+      process.exit(1);
+    }
+    Object.assign(env, ndkToolchainEnv(path.resolve(ndk), args.target, args.androidApi));
+  }
+  execFileSync('cargo', cargoArgs, {stdio: 'inherit', env});
 
   const lib = path.join(genDir, 'target', args.target, profile, 'librust_app.a');
   if (!fs.existsSync(lib)) {

@@ -108,11 +108,24 @@ superlib,单次 cargo 构建。
 - ✅ 共存性 spike:多份自包含 `.a` 无符号冲突(归档按需拉入天然去
   重),linkme 条目跨归档合并
 - ✅ 构建钩子核心(`npm/scripts/build.js`):发现 + 聚合生成 + 单次
-  构建,已在独立 app 端到端验证
-- ⬜ 平台钩子:pod `script_phase` / Android gradle task 调 build.js,
-  产物自动进入平台构建(现在还手动 cp)
-- ⬜ 核心 npm 包平台文件(package.json/podspec/gradle + autolinking)
-- ⬜ 模块包发布形态(TS 生成物随包、版本一致性校验)
+  构建(含 symlink node_modules 支持)
+- ✅ **iOS 零胶水集成**:核心 npm 包(podspec + `script_phase` 自动
+  cargo + `prepare_command` placeholder),纯 autolinking 端到端验
+  证(npm install → pod install → xcodebuild → 模拟器)。踩坑记录:
+  CocoaPods 在 pod install 时对 vendored `.a` 做**存在性 + lipo 架构**
+  双重检查,空 archive 会被静默丢弃 → 用预置 504 字节 arm64
+  placeholder(`scripts/placeholder.a`)
+- ✅ **Android 零胶水集成**(`21b54d6`):核心包 Android library 模块
+  (autolinking 自动注册,零 Java/CMake 改动)——`rustTurboBuild`
+  gradle task 自动 cargo(build.js 自注入 NDK 工具链,免 cargo-ndk),
+  CMake 编 JNI glue 进 `librustturbo.so` 并静态链入聚合 `.a`
+  (`buildFeatures.prefab` 解 ReactAndroid/fbjni;RN 0.88 头要 C++20)。
+  assembleDebug → 模拟器全绿(含 async Promise)。踩坑记录:**生成
+  产物绝不能放 npm 包目录内**——`file:` 本地包是 symlink,RN
+  autolinking CLI 扫依赖树时撞上 cargo `target/` 直接 OOM(4GB 堆),
+  产物移到 `<app>/node_modules/.cache/rust-turbo`
+- ⬜ 模块包发布形态打磨(react-android prefab 依赖随 app 的 RN 版本
+  联动、版本一致性校验、npm README)
 
 **验收**:新 app `npm install` 即用,不拷贝任何文件、不改
 Podfile/CMakeLists。

@@ -2,3 +2,9 @@
 **/lib
 **/generated/rust-turbo/
 npm/generated/
+
+# react-native-rust-turbo build state (produced by the platform hooks)
+jsi-turbo/npm/librust-app.a
+jsi-turbo/npm/android/build/
+jsi-turbo/npm/android/.cxx/
+jsi-turbo/npm/android/src/main/rust/

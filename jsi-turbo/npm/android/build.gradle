@@ -1,0 +1,145 @@
+// react-native-rust-turbo Android library module.
+//
+// Auto-registered by RN autolinking (settings.gradle + PackageList), so an
+// app only needs the npm dependency. The rustTurboBuild task aggregates
+// every installed rust-turbo module package into one cargo static library
+// before CMake compiles the JNI glue, which links that library into
+// librustturbo.so. Editing Rust just works on the next gradle build.
+
+buildscript {
+    repositories {
+        mavenCentral()
+        google()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:9.2.1")
+    }
+}
+
+def getExtOrDefault(name, defaultValue) {
+    return rootProject.ext.has(name) ? rootProject.ext.get(name) : defaultValue
+}
+
+apply plugin: 'com.android.library'
+
+def shouldEnableAgpFallback() {
+    def agpMajorVersion = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION.tokenize('.')[0].toInteger()
+    if (agpMajorVersion <= 8) {
+        return true
+    }
+    def propertyVal = providers.gradleProperty("android.builtInKotlin").orNull
+    def isBuiltInKotlinEnabled = propertyVal != null ? propertyVal.toBoolean() : true
+    return !isBuiltInKotlinEnabled
+}
+
+if (shouldEnableAgpFallback()) {
+    apply plugin: 'kotlin-android'
+}
+
+// this package lives at <app>/node_modules/react-native-rust-turbo
+def appRoot = project.projectDir.parentFile.parentFile.parentFile
+
+def rustProfile = project.hasProperty('rustTurboProfile') ? project.rustTurboProfile : 'release'
+def rustAbiFilters = project.hasProperty('reactNativeArchitectures')
+    ? project.reactNativeArchitectures.split(',')
+    : ['arm64-v8a']
+
+def abiToTriple = [
+    'arm64-v8a': 'aarch64-linux-android',
+    'armeabi-v7a': 'armv7-linux-androideabi',
+    'x86_64': 'x86_64-linux-android',
+    'x86': 'i686-linux-android',
+]
+
+task rustTurboBuild {
+    group = 'rust'
+    description = 'Aggregate installed rust-turbo module packages into one cargo static library'
+    outputs.upToDateWhen { false } // cargo itself is the incremental engine
+    doLast {
+        def ndkDir = android.ndkDirectory
+        rustAbiFilters.each { abi ->
+            def triple = abiToTriple[abi]
+            if (triple == null) {
+                throw new GradleException("rust-turbo: unsupported ABI ${abi}")
+            }
+            println "rust-turbo: cargo build ${abi} (${rustProfile})"
+            // Gradle 9 removed Project.exec; plain ProcessBuilder keeps this
+            // working across AGP/Gradle versions
+            def cmd = ['node', "${project.projectDir}/../scripts/build.js",
+                '--app', appRoot,
+                '--target', triple,
+                '--ndk', ndkDir,
+                '--android-api', "${getExtOrDefault('minSdkVersion', 24)}",
+                (rustProfile == 'release') ? '--release' : '--debug']*.toString()
+            def proc = new ProcessBuilder(cmd as List).inheritIO().start()
+            if (proc.waitFor() != 0) {
+                throw new GradleException("rust-turbo: cargo build failed for ${abi}")
+            }
+            def src = new File("${appRoot}/node_modules/.cache/rust-turbo/rust-app/target/${triple}/${rustProfile}/librust_app.a")
+            def dstDir = new File("${project.projectDir}/src/main/rust/${abi}")
+            dstDir.mkdirs()
+            java.nio.file.Files.copy(src.toPath(),
+                new File(dstDir, 'librust_app.a').toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+}
+
+android {
+    namespace "com.rustturbo"
+
+    compileSdkVersion getExtOrDefault('compileSdkVersion', 36)
+
+    defaultConfig {
+        minSdkVersion getExtOrDefault('minSdkVersion', 24)
+        versionCode 1
+        versionName "0.1.0"
+
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_shared'
+            }
+        }
+        ndk {
+            abiFilters(*rustAbiFilters)
+        }
+    }
+
+    if (rootProject.hasProperty("ndkPath")) {
+        ndkPath rootProject.ext.ndkPath
+    }
+    if (rootProject.hasProperty("ndkVersion")) {
+        ndkVersion rootProject.ext.ndkVersion
+    }
+
+    buildFeatures {
+        prefab true
+    }
+
+    externalNativeBuild {
+        cmake {
+            path 'CMakeLists.txt'
+        }
+    }
+
+    preBuild.dependsOn rustTurboBuild
+}
+
+repositories {
+    google()
+    maven {
+        // React Native (JS, Obj-C sources, Android binaries) is installed from npm
+        url "$rootDir/../node_modules/react-native/android"
+    }
+    // prebuilt native artifacts (react-android prefab) since RN 0.75
+    maven { url "https://repo.reactnative.dev/maven2" }
+    mavenCentral()
+}
+
+dependencies {
+    // prefab (jsi, reactnative) from the React Native maven in node_modules;
+    // keep in sync with the app's react-native version
+    implementation "com.facebook.react:react-android:0.88.1"
+    // prefab for the CMake build (fbjni headers/libs)
+    implementation 'com.facebook.fbjni:fbjni:0.7.0'
+}
