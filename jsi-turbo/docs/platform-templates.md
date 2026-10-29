@@ -65,13 +65,25 @@ Nitro 的「零代码」实际是三层分工:
      npm + Cargo 两张依赖图(crate 源码进 pnpm store,`cargo build`
      离线编译)。它只做依赖分发、不编译,不改变上面的触发点结论,
      仅作为可选增强写进用户文档,不是依赖项。
-2. **多模块聚合** —— linkme 分布式切片要求所有模块的 `.o` 进同一个
-   静态库,而 RN autolinking 是按 npm 包逐个链库的。两个方向:
-   - 单聚合 crate(现状 superlib 模式):npm 包只是壳,依赖一个
-     用户自建的聚合 crate;
-   - 或允许多个 `.a` 各自带 carrier(TurboModule 名字不同即可共存),
-     每包自包含。后者对 autolinking 更友好,代价是每包一个
-     TurboModule/代理入口(`RustTurbo` 代理改为可重入/可共存)。
+2. **模块注册与「保证被链入」** —— 与 Nitro 的本质区别:Nitro 的
+   注册表是运行时 map,必须有人执行填充代码(Android `JNI_OnLoad` →
+   `registerAllNatives()`,iOS ObjC `+load`);我们的注册是**链接期
+   静态数据**(linkme 切片),`.so`/二进制加载即就位,不存在需要被
+   调用的注册函数。Android 链路:`SoLoader.loadLibrary`(RN 模板
+   自带)→ linkme 切片随 .so 就位 → JS import 触发 carrier →
+   `rust_turbo_install` 装代理 → `get(name)` 遍历切片。carrier 里的
+   JNI 函数只是 fbjni 方法绑定,不是注册。
+   真正的问题是**链接器可能丢弃无引用的 `.o`**:
+   - Android:每包的 `.a` 链进**本包自己的** `.so`(autolinking
+     天然按包建库),superlib 的 `#[used]` 锚数组在包内自引用即可;
+   - iOS:`#[used]` 只保证符号进二进制,dead_strip 仍可能裁——
+     真正保命的是「有代码引用锚」(已踩过的坑)。npm 包形态下由
+     **生成的 carrier `.mm` 引用本包锚数组**承担(它必须被编译
+     进 app),每包自带,互不依赖。
+   由此多包聚合问题(原机制问题)的结论:**每包自包含可行**——
+   每包一个 `.a` + 一份锚引用 + 一个 TurboModule 入口,天然可共存;
+   剩余待 spike 的只有代理共存(`RustTurbo` 代理支持多次 install:
+   名字空间合并,或按包前缀/独立代理)。
 3. **环境变量注入**(`JSI_DIR`/`REACT_NATIVE_DIR`,见
    [crates-io-publishing.md](crates-io-publishing.md))——在生成的
    gradle/cargo 脚本里自动指向 `node_modules/react-native`,
@@ -95,5 +107,7 @@ npm 包名建议 `create-rust-turbo` / `<module>-turbo` 约定。
 2. 写 `jsi-turbo-gen`(或宏的 postrun):从注册表读全部模块,
    生成 `+autolinking.*` 与 carrier 文件;
 3. example 改造成 npm 包形态,验证「npm install 即用、零拷贝」;
-4. 多包共存问题(机制问题 2)做 spike 后定方向;
+4. 代理共存 spike:两个 npm 包(各自 `.a` + carrier)装进同一 app,
+   验证 linkme 切片按包各自可见、`RustTurbo` 代理多次 install 的
+   名字空间合并;
 5. 与 crates.io 路线的指路错误联动(build.rs 报错指向 npm 包文档)。
