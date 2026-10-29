@@ -10,7 +10,7 @@
 //! getTurboDemo().add(19, 23); // 42
 //! ```
 
-use jsi::RuntimeHandle;
+use jsi::{JsiArrayBuffer, RuntimeHandle};
 use jsi_turbo::{RustTurboModule, TurboCallback, TurboStruct};
 use serde::{Deserialize, Serialize};
 
@@ -60,6 +60,27 @@ impl TurboDemo {
     #[turbo(getter)]
     pub fn get_version(&self) -> anyhow::Result<String> {
         Ok(env!("CARGO_PKG_VERSION").into())
+    }
+
+    /// Moves a Rust allocation into JS as an ArrayBuffer backed by that
+    /// same memory — zero-copy handoff (the GC drops the Rust Vec when the
+    /// buffer becomes unreachable). Pattern: byte i = i mod 251.
+    pub fn make_buffer<'rt>(
+        &self,
+        rt: &mut RuntimeHandle<'rt>,
+        len: f64,
+    ) -> anyhow::Result<JsiArrayBuffer<'rt>> {
+        let data: Vec<u8> = (0..len as usize).map(|i| (i % 251) as u8).collect();
+        Ok(JsiArrayBuffer::from_vec(data, rt))
+    }
+
+    /// Reads a JS-provided buffer in place (no copy) and sums its bytes.
+    pub fn checksum<'rt>(
+        &self,
+        rt: &mut RuntimeHandle<'rt>,
+        buf: JsiArrayBuffer<'rt>,
+    ) -> anyhow::Result<f64> {
+        Ok(buf.data(rt).iter().map(|&b| b as u64).sum::<u64>() as f64)
     }
 }
 

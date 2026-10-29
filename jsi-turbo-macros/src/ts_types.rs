@@ -13,7 +13,7 @@ pub fn is_jsi_handle_type(ty: &Type) -> bool {
     match last_segment(ty) {
         Some(seg) => matches!(
             seg.ident.to_string().as_str(),
-            "JsiValue" | "JsiObject" | "JsiString" | "JsiSymbol" | "JsiFn"
+            "JsiValue" | "JsiObject" | "JsiString" | "JsiSymbol" | "JsiFn" | "JsiArrayBuffer"
         ),
         None => false,
     }
@@ -37,6 +37,7 @@ pub fn ts_type_of(ty: &Type, imports: &mut Vec<String>) -> String {
         "bool" => "boolean".into(),
         "String" | "JsiString" => "string".into(),
         "JsiValue" | "JsiObject" | "JsiFn" | "JsiSymbol" => "any".into(),
+        "JsiArrayBuffer" => "ArrayBuffer".into(),
         "Vec" => {
             let inner = generic_inner(seg)
                 .map(|t| ts_type_of(t, imports))

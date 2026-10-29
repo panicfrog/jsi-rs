@@ -264,6 +264,22 @@ pub mod ffi {
         ) -> *mut u8;
         #[namespace = "jsi_rs::ffi"]
         pub fn ArrayBuffer_length(_self: &JsiArrayBuffer, rt: Pin<&mut Runtime>) -> usize;
+        /// Creates an ArrayBuffer backed by Rust-owned memory (`ctx` is a
+        /// boxed Rust allocation; `drop_fn` frees it when the GC releases
+        /// the buffer). Zero-copy Rust -> JS transfer.
+        #[namespace = "jsi_rs::ffi"]
+        pub unsafe fn Runtime_createArrayBufferFromRust(
+            rt: Pin<&mut Runtime>,
+            data: *mut u8,
+            size: usize,
+            ctx: *mut c_void,
+            drop_fn: unsafe extern "C" fn(ctx: *mut c_void),
+        ) -> UniquePtr<JsiArrayBuffer>;
+        #[namespace = "jsi_rs::ffi"]
+        pub unsafe fn Value_fromArrayBuffer(
+            rt: Pin<&mut Runtime>,
+            b: UniquePtr<JsiArrayBuffer>,
+        ) -> UniquePtr<JsiValue>;
 
         #[cxx_name = "Function"]
         pub type JsiFunction;

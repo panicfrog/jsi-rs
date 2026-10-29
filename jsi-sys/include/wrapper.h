@@ -376,6 +376,46 @@ inline uint8_t *ArrayBuffer_data(ArrayBuffer const &self, Runtime &rt)
   return self.data(rt);
 }
 
+// A MutableBuffer backed by Rust-owned memory. `ctx` is a boxed Rust
+// allocation; `drop` frees it. The deleter runs when the JS GC releases the
+// ArrayBuffer, so ownership effectively moves from Rust to the runtime.
+class RustMutableBuffer final : public ::facebook::jsi::MutableBuffer
+{
+public:
+  RustMutableBuffer(uint8_t *data, size_t size, void *ctx,
+                    ::rust::Fn<void(void *)> drop)
+      : data_(data), size_(size), ctx_(ctx), drop_(drop) {}
+  RustMutableBuffer(const RustMutableBuffer &) = delete;
+  RustMutableBuffer &operator=(const RustMutableBuffer &) = delete;
+  ~RustMutableBuffer() override { drop_(ctx_); }
+
+  size_t size() const override { return size_; }
+  uint8_t *data() override { return data_; }
+
+private:
+  uint8_t *data_;
+  size_t size_;
+  void *ctx_;
+  ::rust::Fn<void(void *)> drop_;
+};
+
+inline std::unique_ptr<ArrayBuffer> Runtime_createArrayBufferFromRust(
+    Runtime &rt, uint8_t *data, size_t size, void *ctx,
+    ::rust::Fn<void(void *)> drop
+)
+{
+  auto buffer = std::make_shared<RustMutableBuffer>(data, size, ctx, drop);
+  auto value = rt.createArrayBuffer(std::move(buffer));
+  return std::make_unique<ArrayBuffer>(std::move(value));
+}
+
+inline std::unique_ptr<Value> Value_fromArrayBuffer(
+    Runtime &rt, std::unique_ptr<ArrayBuffer> b
+)
+{
+  return std::make_unique<Value>(rt, std::move(*b.release()));
+}
+
 inline bool Function_isHostFunction(Function const &self, Runtime &rt)
 {
   return self.isHostFunction(rt);

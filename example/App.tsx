@@ -40,6 +40,11 @@ function App(): React.JSX.Element {
           // the Promise resolves back on the JS thread
           ['await TurboDemo.slowAdd(20, 22)', String(await turbo.slowAdd(20, 22))],
 
+          // P3: zero-copy buffers — a Rust Vec moved into JS as an
+          // ArrayBuffer backed by the same memory, then read back in place
+          ['TurboDemo.makeBuffer(4096).byteLength', String(turbo.makeBuffer(4096).byteLength)],
+          ['TurboDemo.checksum(makeBuffer(4096))', String(turbo.checksum(turbo.makeBuffer(4096)))],
+
           // proxy diagnostics (P1): registry introspection
           ['RustTurbo.names()', ((globalThis.RustTurbo as unknown as {names(): string[]}) ?? {names: () => []}).names().join(', ')],
           ['RustTurbo.version / buildType', `${(globalThis.RustTurbo as unknown as {version: string}).version} / ${(globalThis.RustTurbo as unknown as {buildType: string}).buildType}`],

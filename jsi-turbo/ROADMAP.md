@@ -132,10 +132,18 @@ anyhow::Result<X>` 路径,不再要求 `Default`。
 需要对象身份(WeakObject 缓存,参照 Nitro 的 `_objectCache`)与 GC
 协议设计,建议先出设计文档。
 
-### P3 · ArrayBuffer 零拷贝
+### P3 · ArrayBuffer 零拷贝 ✅(已完成)
 
-大数据双向传递不走 serde。`JsiArrayBuffer::data()` 已有,缺的是宏
-类型映射(`&[u8]` / 自定义 buffer 类型)+ 生命周期看护。
+大数据双向传递不走 serde:
+- **Rust → JS**:`JsiArrayBuffer::from_vec(vec, rt)` 把 Vec 所有权移交
+  runtime——外部 ArrayBuffer(jsi.h 的 `createArrayBuffer(shared_ptr<
+  MutableBuffer>)`,Hermes 经 `setExternalDataBlock` 保留共享指针),
+  GC 回收 JS buffer 时才 drop Rust 内存。真·零拷贝。
+- **JS → Rust**:方法参数收 `JsiArrayBuffer<'rt>`(借用,同步调用
+  保证方法返回前有效),`data(rt)` 原地读写,双向可见。
+- 宏:JsiArrayBuffer 归入 JSI handle 类型(仅 sync 方法),TS 映射
+  `ArrayBuffer`;方法需显式生命周期 `fn f<'rt>(&self, rt: &mut
+  RuntimeHandle<'rt>, buf: JsiArrayBuffer<'rt>)`。
 
 ### P3 · JS 回调参数 ✅(已完成)
 
