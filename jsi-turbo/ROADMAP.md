@@ -93,18 +93,26 @@ cd example && npx tsc --noEmit          # 生成的 TS 类型
 **验收**:trait 方法有测试;持有大 Vec 的测试模块在
 `turbo_external_size` 返回非零时行为不变。
 
-### P2 · 可发布的平台模板
+### P2 · 可发布的平台模板(进行中)
 
 **背景**:carrier 目前是「拷贝文件」模式(每 app 一次),对使用者仍
 有接线成本。
 
-**怎么做**(设计见 [`docs/platform-templates.md`](docs/platform-templates.md),
-基于对 Nitro v0.37.1 构建集成的调研):仿 Nitro 的
-`+autolinking.{rb,gradle,cmake}` 模式——宏/构建脚本生成 carrier
-三件套和构建描述文件,npm 包携带 podspec + gradle 走 RN 标准
-autolinking;cargo 由生成的构建脚本触发(iOS `script_phase`,
-Android gradle task),`JSI_DIR`/`REACT_NATIVE_DIR` 自动指向
-`node_modules`。关键待决:多模块 `.a` 聚合 vs 多包共存。
+**怎么做**(设计与共存性 spike 结论见
+[`docs/platform-templates.md`](docs/platform-templates.md)):Nitro 的
+核心库模式——`react-native-rust-turbo` 核心 npm 包持有 carrier 和
+构建钩子,扫描 node_modules 中的 rust-turbo 模块包,生成聚合
+superlib,单次 cargo 构建。
+
+**进展**:
+- ✅ 共存性 spike:多份自包含 `.a` 无符号冲突(归档按需拉入天然去
+  重),linkme 条目跨归档合并
+- ✅ 构建钩子核心(`npm/scripts/build.js`):发现 + 聚合生成 + 单次
+  构建,已在独立 app 端到端验证
+- ⬜ 平台钩子:pod `script_phase` / Android gradle task 调 build.js,
+  产物自动进入平台构建(现在还手动 cp)
+- ⬜ 核心 npm 包平台文件(package.json/podspec/gradle + autolinking)
+- ⬜ 模块包发布形态(TS 生成物随包、版本一致性校验)
 
 **验收**:新 app `npm install` 即用,不拷贝任何文件、不改
 Podfile/CMakeLists。
