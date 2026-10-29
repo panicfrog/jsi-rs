@@ -8,7 +8,10 @@ description = "Rust TurboModule framework for React Native (Rust macros as the s
 publish = false
 
 [dependencies]
-jsi = { path = "../jsi" }
+# default-features = false: React Native apps already ship jsi, and this
+# crate is RN-specific anyway (the dispatcher uses jsi-rn's CallInvoker)
+jsi = { path = "../jsi", default-features = false, features = ["macros", "serde"] }
+jsi-rn = { path = "../jsi-rn" }
 jsi-turbo-macros = { path = "../jsi-turbo-macros" }
 linkme = "0.3"
 anyhow = "1.0"

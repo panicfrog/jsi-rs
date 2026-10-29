@@ -4,6 +4,7 @@ members = [
   "jsi-macros",
   "jsi-tests",
   "jsi",
+  "jsi-rn",
   "jsi-turbo",
   "jsi-turbo-macros",
   "example/native/jsi-demo-module",

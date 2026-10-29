@@ -194,7 +194,6 @@ name = "jsi-demo-module"
 version = "0.88.1"
 dependencies = [
  "anyhow",
- "cxx",
  "jsi",
  "jsi-turbo",
  "linkme",
@@ -210,6 +209,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.56",
+]
+
+[[package]]
+name = "jsi-rn"
+version = "0.88.1"
+dependencies = [
+ "anyhow",
+ "cxx",
+ "cxx-build",
+ "dunce",
+ "jsi",
+ "log",
 ]
 
 [[package]]
@@ -243,6 +254,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "jsi",
+ "jsi-rn",
  "jsi-turbo-macros",
  "linkme",
 ]
@@ -342,6 +354,7 @@ dependencies = [
  "cxx-build",
  "jsi",
  "jsi-demo-module",
+ "jsi-rn",
  "jsi-sys",
  "jsi-turbo",
 ]

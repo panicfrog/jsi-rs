@@ -375,17 +375,9 @@ pub mod ffi {
     impl UniquePtr<Runtime> {}
 
 
-    #[namespace = "facebook::react"]
-    unsafe extern "C++" {
-        pub type CallInvoker;
-    }
-
     #[namespace = "jsi_rs::ffi"]
     unsafe extern "C++" {
         pub type c_void;
-
-        pub unsafe fn CallInvoker_invokeSync(_self: SharedPtr<CallInvoker>, closure: *mut c_void);
-        pub unsafe fn CallInvoker_invokeAsync(_self: SharedPtr<CallInvoker>, closure: *mut c_void);
 
         pub fn create_value_vector() -> UniquePtr<CxxVector<JsiValue>>;
         pub fn push_value_vector(vec: Pin<&mut CxxVector<JsiValue>>, item: UniquePtr<JsiValue>);
@@ -407,15 +399,10 @@ pub mod ffi {
             stride: usize,
             closure: *mut c_void,
         ) -> Result<UniquePtr<JsiValue>>;
-
-        unsafe fn call_invoker_trampoline(closure: *mut c_void) -> Result<()>;
     }
 }
 
 pub use ffi::*;
-
-unsafe impl Sync for CallInvoker {}
-unsafe impl Send for CallInvoker {}
 
 pub type HostFunctionCallback<'rt> = Box<
     dyn FnMut(
@@ -451,11 +438,4 @@ unsafe fn host_fn_trampoline(
     let res = closure(rt, this, &args_refs[..]);
     Box::leak(closure);
     res
-}
-
-pub type CallInvokerCallback<'rt> = Box<dyn FnOnce() -> anyhow::Result<()> + 'rt>;
-
-unsafe fn call_invoker_trampoline(closure: *mut c_void) -> anyhow::Result<()> {
-    let closure = Box::from_raw(closure as *mut CallInvokerCallback);
-    closure()
 }

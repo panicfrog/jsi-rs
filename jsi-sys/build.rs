@@ -4,42 +4,26 @@ fn main() {
     let base = env::var_os("CARGO_MANIFEST_DIR").unwrap();
     let pkg_base = PathBuf::from(base);
 
-    let target_os = env::var_os("CARGO_CFG_TARGET_OS");
-    let target_os = if let Some(s) = &target_os {
-        s.to_str()
-    } else {
-        None
-    };
+    // Directory containing `jsi/jsi.h` (and `jsi/jsi.cpp` when the
+    // `bundled-jsi` feature is enabled). jsi is engine-agnostic, so any copy of
+    // it works, as long as it is the same version the JS engine was built
+    // against: it is the ABI contract between host and engine. Defaults to the
+    // copy in the vendored React Native tree that this branch is paired with.
+    println!("cargo:rerun-if-env-changed=JSI_DIR");
+    let jsi_dir = env::var_os("JSI_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| pkg_base.join("vendor/react-native/packages/react-native/ReactCommon/jsi"));
 
-    let rn_base = pkg_base.join("vendor/react-native/packages/react-native");
-
-    let mut includes = vec![
-        rn_base.join("React"),
-        rn_base.join("React/Base"),
-        rn_base.join("ReactCommon/jsi"),
-        rn_base.join("ReactCommon/callinvoker"),
-        // CallInvoker.h includes react/cxxstableapi/UmbrellaGuard.h (RN 0.88+)
-        rn_base.join("ReactCommon"),
-        pkg_base.join("include"),
-    ];
-
-    if let Some("android") = target_os {
-        includes.push(
-            rn_base.join("ReactAndroid/src/main/jni/react/turbomodule/"),
-        );
-        includes.push(pkg_base.join("vendor/fbjni/cxx"));
-    }
-
-    let includes: Vec<_> = IntoIterator::into_iter(includes)
+    let includes: Vec<_> = IntoIterator::into_iter(vec![jsi_dir.clone(), pkg_base.join("include")])
         .map(|p| dunce::canonicalize(&p).expect(&format!("missing include path {:?}", p)))
         .collect();
 
-    let mut compiles = vec![rn_base.join("ReactCommon/jsi/jsi/jsi.cpp")];
-
-    if let Some("android") = target_os {
-        compiles.push(
-            rn_base.join("ReactAndroid/src/main/jni/react/turbomodule/ReactCommon/CallInvokerHolder.cpp")
-        );
+    // jsi.cpp holds the out-of-line parts of the jsi classes. Hosts that
+    // already ship jsi (e.g. a React Native app) must provide those symbols
+    // themselves, otherwise the program ends up with two copies of them.
+    let mut compiles = vec![];
+    if env::var_os("CARGO_FEATURE_BUNDLED_JSI").is_some() {
+        compiles.push(jsi_dir.join("jsi/jsi.cpp"));
     }
 
     let compiles: Vec<_> = IntoIterator::into_iter(compiles)
@@ -50,11 +34,7 @@ fn main() {
         .exported_header_dirs
         .extend(includes.iter().map(|e| e.as_path()));
 
-    let mut bridges = vec!["src/ffi/base.rs", "src/ffi/host.rs", "src/ffi/native_state.rs"];
-
-    if let Some("android") = target_os {
-        bridges.push("src/ffi/android.rs");
-    }
+    let bridges = vec!["src/ffi/base.rs", "src/ffi/host.rs", "src/ffi/native_state.rs"];
 
     for bridge in &bridges {
         println!("cargo:rerun-if-changed={}", bridge);

@@ -4,7 +4,7 @@ pub mod ffi {
     unsafe extern "C++" {
         include!("ReactCommon/CallInvokerHolder.h");
 
-        type CallInvoker = crate::ffi::base::CallInvoker;
+        type CallInvoker = crate::ffi::CallInvoker;
         pub type CallInvokerHolder;
 
         pub fn getCallInvoker(self: Pin<&mut CallInvokerHolder>) -> SharedPtr<CallInvoker>;

@@ -14,8 +14,10 @@ publish = false
 crate-type = ["staticlib"]
 
 [dependencies]
-jsi = { path = "../../../jsi" }
+# React Native already ships jsi, so don't compile a second copy of it
+jsi = { path = "../../../jsi", default-features = false, features = ["macros", "serde"] }
 jsi-sys = { path = "../../../jsi-sys" }
+jsi-rn = { path = "../../../jsi-rn" }
 jsi-turbo = { path = "../../../jsi-turbo" }
 jsi-demo-module = { path = "../jsi-demo-module" }
 anyhow = "1.0"

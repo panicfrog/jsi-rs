@@ -6,8 +6,7 @@
 use anyhow::bail;
 use std::{marker::PhantomData, pin::Pin};
 
-use crate::{sys, IntoValue, JsTaskCallback, JsiValue, PropName, RuntimeHandle};
-use sys::CallInvokerCallback;
+use crate::{sys, IntoValue, JsCallback, JsTaskCallback, JsiValue, PropName, RuntimeHandle};
 
 /// An owned host object
 pub struct OwnedJsiHostObject<'rt>(
@@ -281,5 +280,5 @@ unsafe impl<'rt> Send for SharedJsiUserHostObject<'rt> {}
 pub trait AsyncUserHostObject {
     fn spawn<'rt>(task: JsTaskCallback<'rt>);
 
-    fn invoke(cb: CallInvokerCallback);
+    fn invoke(cb: JsCallback<'static>);
 }

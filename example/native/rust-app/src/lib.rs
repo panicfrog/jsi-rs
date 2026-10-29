@@ -12,11 +12,12 @@ use std::pin::Pin;
 mod bridge {
     unsafe extern "C++" {
         include!("wrapper.h");
+        include!("rn_wrapper.h");
 
         #[namespace = "facebook::jsi"]
         type Runtime = jsi_sys::Runtime;
         #[namespace = "facebook::react"]
-        type CallInvoker = jsi_sys::CallInvoker;
+        type CallInvoker = jsi_rn::sys::CallInvoker;
     }
 
     extern "Rust" {
@@ -33,11 +34,14 @@ mod bridge {
 #[used]
 static FORCE_LINK: [extern "C" fn(); 1] = [jsi_demo_module::__jsi_turbo_force_turbo_demo];
 
-fn rust_turbo_install(rt: Pin<&mut jsi_sys::Runtime>, invoker: cxx::SharedPtr<jsi_sys::CallInvoker>) -> bool {
+fn rust_turbo_install(
+    rt: Pin<&mut jsi_sys::Runtime>,
+    invoker: cxx::SharedPtr<jsi_rn::sys::CallInvoker>,
+) -> bool {
     let rt: &mut jsi_sys::Runtime = unsafe { Pin::into_inner_unchecked(rt) };
     let raw = rt as *mut jsi_sys::Runtime;
 
-    let (mut rt, invoker) = jsi::init(rt, invoker);
+    let (mut rt, invoker) = jsi_rn::init(raw, invoker);
     let dispatcher = jsi_turbo::Dispatcher::call_invoker(invoker, raw);
     match jsi_turbo::install(&mut rt, dispatcher) {
         Ok(()) => true,

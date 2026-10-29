@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.74"
 links = "jsi"
 license = "MIT"
-description = "Low-level interface to React Native JSI"
+description = "Low-level, engine-agnostic bindings to JSI (the JavaScript Interface used by Hermes, JSC and React Native)"
 authors = ["Ibiyemi Abiodun <ibiyemi@intulon.com>"]
 repository = "https://github.com/laptou/jsi-rs/"
 
@@ -20,3 +20,9 @@ anyhow = "1.0"
 [build-dependencies]
 cxx-build = "1.0"
 dunce = "1.0"
+
+[features]
+default = ["bundled-jsi"]
+# compile jsi.cpp into this crate; disable when the host (e.g. a React Native
+# app) already provides the jsi symbols
+bundled-jsi = []

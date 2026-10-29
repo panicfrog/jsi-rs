@@ -80,4 +80,3 @@ native/jsi-demo-module/*.a
 native/rust-app/include/
 android/app/src/main/jniLibs/
 android/app/src/main/rust/
-native/rust-app/include/

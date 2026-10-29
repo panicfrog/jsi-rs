@@ -6,7 +6,8 @@
 //! hop; `Inline` runs everything synchronously on the calling thread and
 //! exists for single-threaded test harnesses.
 
-use jsi::{CallInvoker, RuntimeHandle};
+use jsi::RuntimeHandle;
+use jsi_rn::CallInvoker;
 
 #[derive(Clone)]
 pub enum Dispatcher {

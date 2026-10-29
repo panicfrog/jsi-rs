@@ -30,6 +30,9 @@ every Rust module plus the [jsi-turbo](../jsi-turbo) runtime. Building it
 also runs `#[RustTurboModule]` macros, which write the TypeScript bindings
 under `native/jsi-demo-module/generated/rust-turbo/`.
 
+The crate is part of the jsi-rs cargo workspace, so its build output lands in
+the workspace's `target/` directory (`../../../target` from the crate).
+
 ```bash
 # from the repo root
 
@@ -46,8 +49,14 @@ cp target/aarch64-linux-android/release/librust_app.a \
    example/android/app/src/main/rust/arm64-v8a/
 ```
 
+Both platforms link the Rust **static library** into the app's own native
+build. The crate depends on `jsi` with `default-features = false`, which turns
+off the `bundled-jsi` feature: React Native already ships jsi, and the Rust
+library uses that copy instead of compiling a second one.
+
 For iOS device builds, also build `aarch64-apple-ios` and either lipo the two
-`.a` files together or update the podspec.
+`.a` files together or update the podspec. For more Android ABIs, build each
+target and copy it to `android/<ABI>/`.
 
 ## Run on iOS
 
@@ -68,7 +77,8 @@ UDID over the name, since names can match multiple simulator runtimes.
 
 ```bash
 cd android
-JAVA_HOME=<path-to-jdk-21> ./gradlew assembleDebug
+# build only the ABIs you built the Rust library for
+JAVA_HOME=<path-to-jdk-21> ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a
 adb install app/build/outputs/apk/debug/app-debug.apk
 adb reverse tcp:8081 tcp:8081   # let the app reach metro
 adb shell am start -n com.jsidemo/.MainActivity

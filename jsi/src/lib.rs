@@ -9,7 +9,6 @@ extern crate self as jsi;
 
 mod array;
 mod array_buffer;
-mod call_invoker;
 #[cfg(feature = "serde")]
 mod convert;
 mod function;
@@ -20,13 +19,13 @@ mod native_state;
 mod object;
 mod prop_name;
 mod runtime;
+mod scheduler;
 mod string;
 mod symbol;
 mod value;
 
 pub use array::*;
 pub use array_buffer::*;
-pub use call_invoker::*;
 #[cfg(feature = "serde")]
 pub use convert::*;
 pub use function::*;
@@ -37,6 +36,7 @@ pub use native_state::*;
 pub use object::*;
 pub use prop_name::*;
 pub use runtime::*;
+pub use scheduler::*;
 pub use string::*;
 pub use symbol::*;
 pub use value::*;
@@ -71,20 +71,15 @@ pub type JsTaskCallback<'rt> = Box<
         + 'rt,
 >;
 
-pub fn init(
-    rt: *mut sys::Runtime,
-    call_invoker: cxx::SharedPtr<sys::CallInvoker>,
-) -> (RuntimeHandle<'static>, CallInvoker<'static>) {
+/// Wraps a raw `jsi::Runtime` pointer handed over by the host.
+///
+/// The caller must ensure that the runtime outlives every JSI object created
+/// from the returned handle, and that the handle is only used on the runtime's
+/// JS thread. React Native hosts should use `jsi_rn::init`, which also wraps
+/// the CallInvoker.
+pub fn init(rt: *mut sys::Runtime) -> RuntimeHandle<'static> {
     #[cfg(feature = "log")]
     log::debug!("got JSI runtime pointer: {:p}", rt);
-    #[cfg(feature = "log")]
-    log::debug!(
-        "got JSI call invoker pointer: {:p}",
-        call_invoker.as_ref().unwrap()
-    );
 
-    let runtime_handle = RuntimeHandle::new_unchecked(rt);
-    let call_invoker = CallInvoker::new(call_invoker);
-
-    (runtime_handle, call_invoker)
+    RuntimeHandle::new_unchecked(rt)
 }

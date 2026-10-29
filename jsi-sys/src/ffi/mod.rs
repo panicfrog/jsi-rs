@@ -1,11 +1,7 @@
-#[cfg(target_os = "android")]
-mod android;
 mod base;
 mod host;
 mod native_state;
 
-#[cfg(target_os = "android")]
-pub use android::*;
 pub use base::*;
 // the host and native_state bridges re-declare shared types from the base
 // bridge (Runtime, JsiValue, ...) which would collide in a glob import, so

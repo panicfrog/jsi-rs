@@ -18,13 +18,16 @@ fn main() {
         )
     }
 
-    let rn_base = pkg_base.join("../vendor/react-native/packages/react-native");
+    // same jsi copy as jsi-sys (see jsi-sys/build.rs)
+    println!("cargo:rerun-if-env-changed=JSI_DIR");
+    let jsi_dir = env::var_os("JSI_DIR").map(PathBuf::from).unwrap_or_else(|| {
+        pkg_base.join("../vendor/react-native/packages/react-native/ReactCommon/jsi")
+    });
 
+    // only jsi and the hermes API: the tests exercise the engine-agnostic jsi
+    // crate and must not depend on React Native
     let includes = vec![
-        rn_base.join("React"),
-        rn_base.join("React/Base"),
-        rn_base.join("ReactCommon/jsi"),
-        rn_base.join("ReactCommon/callinvoker"),
+        jsi_dir,
         pkg_base.join("../vendor/hermes/API"),
         pkg_base.join("../vendor/hermes/public"),
         pkg_base.join("include"),
