@@ -124,6 +124,16 @@ superlib,单次 cargo 构建。
   产物绝不能放 npm 包目录内**——`file:` 本地包是 symlink,RN
   autolinking CLI 扫依赖树时撞上 cargo `target/` 直接 OOM(4GB 堆),
   产物移到 `<app>/node_modules/.cache/rust-turbo`
+- ✅ **example 迁移到 npm 包形态**(`afa74fd`):jsi-demo-module 成为
+  模块包,手工 superlib/carrier/Podfile/MainApplication 接线全部移除,
+  双端零胶水(autolinking + 构建钩子自动 cargo),冷启动/Fast
+  Refresh/全量 reload 三种场景验证。踩坑记录:① package.json 的
+  `file:` 路径层级算错会让 npm 依赖图 invalid,RN CLI **静默**把包从
+  autolinking 里丢掉——症状是 RustTurbo pod 消失、`get('RustTurbo')`
+  返回 null、冷启动即"bindings failed to install";排查手段是给
+  `installJSIBindingsWithRuntime` 插桩看它是否被调 + `npm ls` 查
+  invalid。② cargo path 依赖按包名精确匹配(连字符/下划线不互认),
+  元数据里的 crateName 必须是真实包名,代码引用再转标识符
 - ⬜ 模块包发布形态打磨(react-android prefab 依赖随 app 的 RN 版本
   联动、版本一致性校验、npm README)
 
