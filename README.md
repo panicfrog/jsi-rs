@@ -2,7 +2,8 @@
 
 Rust bindings and tooling for React Native's JSI, plus a Rust TurboModule
 framework. Write native modules in Rust, install them into the JS runtime
-through JSI, and call them from JavaScript — no bridge, no codegen required.
+through JSI, and call them from JavaScript — no bridge, with TypeScript
+bindings generated from a single attribute macro.
 
 > This project was originally forked from
 > [laptou/jsi-rs](https://github.com/laptou/jsi-rs) (thank you
@@ -17,6 +18,17 @@ through JSI, and call them from JavaScript — no bridge, no codegen required.
 4. Make sure you have Ninja installed locally, which is necessary for building Hermes. You can find instructions [here](https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages). On macOS, you can install it with `brew install ninja`
 5. Run the tests: `cargo test -p jsi-tests` (runs against a real Hermes runtime)
 6. To try a complete React Native app, follow [`example/README.md`](example/README.md)
+
+## Writing TurboModules
+
+To use `jsi-turbo` in your own app, follow the usage guide:
+[`jsi-turbo/docs/usage.md`](jsi-turbo/docs/usage.md)
+(中文版:[usage.zh-CN.md](jsi-turbo/docs/usage.zh-CN.md)). In short: install
+the core package plus your module packages, and the platform build hooks
+take care of the cargo build and linking — no manual copy steps.
+
+The current status and roadmap of `jsi-turbo` live in
+[`jsi-turbo/ROADMAP.md`](jsi-turbo/ROADMAP.md).
 
 > NOTE: Make sure that you have not installed rust with homebrew on mac, use the `rustup` toolchain instead.
 
@@ -36,9 +48,6 @@ Native:
 
 Only depend on `jsi-rn` if you need React Native specific APIs such as the
 `CallInvoker`; a module that only installs bindings needs just `jsi`.
-
-The current status and roadmap of `jsi-turbo` live in
-[`jsi-turbo/ROADMAP.md`](jsi-turbo/ROADMAP.md).
 
 ### Build configuration
 

@@ -21,8 +21,9 @@ import { getTurboDemo } from '<模块crate>/generated/rust-turbo/TurboDemo';
 ```
 
 **上手材料**:
+- **使用指南(接入 app、写模块、类型规则、排错)**:
+  [`docs/usage.md`](docs/usage.md)
 - 完整可跑的例子:`example/`(含 iOS/Android 双端验证过的接线)
-- 平台接入一次性步骤:`jsi-turbo/carrier/README.md`
 - API 文档:`jsi-turbo/src/lib.rs` 及各模块 doc 注释
 
 ---
