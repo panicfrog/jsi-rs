@@ -135,8 +135,24 @@ superlib,单次 cargo 构建。
   `installJSIBindingsWithRuntime` 插桩看它是否被调 + `npm ls` 查
   invalid。② cargo path 依赖按包名精确匹配(连字符/下划线不互认),
   元数据里的 crateName 必须是真实包名,代码引用再转标识符
-- ⬜ 模块包发布形态打磨(react-android prefab 依赖随 app 的 RN 版本
-  联动、版本一致性校验、npm README)
+- ✅ react-android prefab 依赖随 app 的 RN 版本联动:build.gradle 从
+  app 的 `node_modules/react-native/package.json` 动态读版本(不再
+  硬编码——patch 版本天然兼容,只有 major.minor 偏离才 warning);
+  Android 模拟器端到端验证(构建 → 解析到 app 实际版本 → 装机运行)。
+  fbjni 不随 RN 版本联动(独立演进),保持默认值 + `ext.fbjniVersion`
+  覆盖开关
+- ✅ 版本一致性校验(build.js `checkVersions`):app 的 RN 版本 vs
+  jsi-rs 目标版本(读 `jsi/Cargo.toml`,crate 版本即 RN 版本),
+  major.minor 偏离或 RN 缺失时 warning 不 fail;覆盖 iOS/Android
+  两条构建路径(cargo 侧比 gradle 配置侧更贴近 jsi.h 编译现场)。
+  三种场景单测验证(匹配静默/偏离告警/缺失告警)+ rustTurboBuild
+  实跑通过
+- ✅ npm README(`jsi-turbo/npm/README.md`:定位、安装、机制、排错表、
+  指回仓库 usage 文档)。踩坑记录:`files` 里显式列出的路径**压过**
+  `.npmignore`(npm 规则),`"android/"` 整目录列入会把 gradle 构建产物
+  一起打进包(npm pack 实测 832MB/223 文件)——改为逐文件白名单后
+  33kB/14 文件;`android/src/main/rust/`(rustTurboBuild 拷入的 `.a`)
+  进根 .gitignore
 
 **验收**:新 app `npm install` 即用,不拷贝任何文件、不改
 Podfile/CMakeLists。

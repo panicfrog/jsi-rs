@@ -1,0 +1,5 @@
+# never ship build state
+android/build/
+android/.cxx/
+# rust artifacts (copied here by the gradle task for CMake linking)
+android/src/main/rust/

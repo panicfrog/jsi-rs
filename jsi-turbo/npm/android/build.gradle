@@ -37,7 +37,29 @@ if (shouldEnableAgpFallback()) {
 }
 
 // this package lives at <app>/node_modules/react-native-rust-turbo
-def appRoot = project.projectDir.parentFile.parentFile.parentFile
+// (canonicalFile resolves the file:-install symlink)
+def appRoot = project.projectDir.parentFile.parentFile.parentFile.canonicalFile
+
+// The prefab dependency must match the RN version the app actually has
+// installed — jsi.h is the ABI contract, so this is not ours to pin. Read
+// it from the app's node_modules; patch releases (0.88.x) are compatible,
+// only major.minor drift is worth a warning.
+def reactNativeVersion = {
+    def rnPackageJson = new File(appRoot, 'node_modules/react-native/package.json')
+    if (!rnPackageJson.exists()) {
+        throw new GradleException(
+            "rust-turbo: cannot find react-native in ${appRoot}/node_modules — " +
+            "is react-native-rust-turbo installed in a React Native app?")
+    }
+    def version = new groovy.json.JsonSlurper().parse(rnPackageJson).version
+    def expected = '0.88'
+    if (!version.startsWith("${expected}.")) {
+        println "rust-turbo: WARNING react-native ${version} found, but jsi-rs " +
+            "targets RN ${expected}.x — jsi.h may have changed; if the build " +
+            "or runtime misbehaves, check the jsi-rs branch for ${version}."
+    }
+    return version
+}()
 
 def rustProfile = project.hasProperty('rustTurboProfile') ? project.rustTurboProfile : 'release'
 def rustAbiFilters = project.hasProperty('reactNativeArchitectures')
@@ -137,9 +159,12 @@ repositories {
 }
 
 dependencies {
-    // prefab (jsi, reactnative) from the React Native maven in node_modules;
-    // keep in sync with the app's react-native version
-    implementation "com.facebook.react:react-android:0.88.1"
-    // prefab for the CMake build (fbjni headers/libs)
-    implementation 'com.facebook.fbjni:fbjni:0.7.0'
+    // prefab (jsi, reactnative) resolved at whatever RN version the app has
+    // installed (detected above) — never pinned here
+    implementation "com.facebook.react:react-android:${reactNativeVersion}"
+    // prefab for the CMake build (fbjni headers/libs). fbjni is versioned
+    // independently of RN, so there is nothing to auto-detect — the default
+    // matches what current RN ships, and apps can override via ext.fbjniVersion
+    // if their RN ever moves to an incompatible fbjni.
+    implementation "com.facebook.fbjni:fbjni:${getExtOrDefault('fbjniVersion', '0.7.0')}"
 }

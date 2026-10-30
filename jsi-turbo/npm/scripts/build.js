@@ -247,6 +247,36 @@ function locateJsiRs(args, appRoot) {
   process.exit(1);
 }
 
+/**
+ * Version-consistency warning: jsi.h is the ABI contract between the Rust
+ * side and the app's engine, so a major.minor drift between the app's
+ * react-native and this jsi-rs checkout is worth knowing about (patch
+ * releases are fine). Warn, don't fail — newer RN versions often still work.
+ */
+function checkVersions(appRoot, jsiRsDir) {
+  const jsiToml = fs.readFileSync(path.join(jsiRsDir, 'jsi', 'Cargo.toml'), 'utf8');
+  const m = jsiToml.match(/^version\s*=\s*"([^"]+)"/m);
+  if (!m) return; // can't tell; the cargo build will surface real problems
+  const jsiRsVersion = m[1];
+  const rnPjPath = path.join(appRoot, 'node_modules', 'react-native', 'package.json');
+  let rnVersion;
+  try {
+    rnVersion = JSON.parse(fs.readFileSync(rnPjPath, 'utf8')).version;
+  } catch {
+    console.error(
+      `rust-turbo: WARNING no react-native found at ${rnPjPath} — jsi.h comes from there; the cargo build will fail unless JSI_DIR is set.`
+    );
+    return;
+  }
+  const short = v => v.split('.').slice(0, 2).join('.');
+  if (short(jsiRsVersion) !== short(rnVersion)) {
+    console.error(
+      `rust-turbo: WARNING app uses react-native ${rnVersion} but this jsi-rs targets ${jsiRsVersion}. ` +
+        `jsi.h may have changed; if the build or runtime misbehaves, use the jsi-rs branch for ${short(rnVersion)}.`
+    );
+  }
+}
+
 function ndkToolchainEnv(ndkDir, target, apiLevel) {
   const prebuilt = path.join(ndkDir, 'toolchains', 'llvm', 'prebuilt');
   let entries = [];
@@ -277,6 +307,7 @@ function main() {
   const args = parseArgs(process.argv);
   const appRoot = path.resolve(args.app);
   const jsiRs = locateJsiRs(args, appRoot);
+  checkVersions(appRoot, jsiRs);
 
   const packages = discover(appRoot);
   if (packages.length === 0) {

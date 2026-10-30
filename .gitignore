@@ -8,3 +8,5 @@ jsi-turbo/npm/librust-app.a
 jsi-turbo/npm/android/build/
 jsi-turbo/npm/android/.cxx/
 jsi-turbo/npm/android/src/main/rust/
+# rust-turbo build artifacts (copied here by rustTurboBuild for CMake)
+android/src/main/rust/
