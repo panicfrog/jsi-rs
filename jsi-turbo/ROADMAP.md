@@ -164,6 +164,13 @@ superlib,单次 cargo 构建。
   后同样验证。附带发现:生成的 `.cargo/config.toml` 从未生效过
   (cargo 只从工作目录向上找 config)——JSI_DIR/REACT_NATIVE_DIR 改为
   build.js 直接注入 cargo 进程环境
+- ✅ **init 脚手架**(2026-10-30):`npx react-native-rust-turbo init
+  <name>`(package.json 的 `bin`)。模板三名字由一个参数派生(npm 名
+  即 crate 名、PascalCase 即模块名),产物含可运行示例模块。纯文件
+  生成、registry 安装即可用,无需 clone 仓库。Android 端到端验证
+  (init → 装进 example → 全链构建 → add=42/version=0.1.0 上屏)。
+  开发中发现并修掉模板两个 bug:元数据键名 `rust_turbo` 应为
+  `rust-turbo`;struct 需 `#[derive(Default)]`
 
 **验收**:新 app `npm install` 即用,不拷贝任何文件、不改
 Podfile/CMakeLists。

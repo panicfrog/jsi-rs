@@ -64,6 +64,12 @@ normal build.
 
 ## Writing module packages
 
+Scaffold one:
+
+```bash
+npx react-native-rust-turbo init my-math-utils
+```
+
 A module package is a normal npm package: one Rust crate + npm metadata
 declaring its modules:
 

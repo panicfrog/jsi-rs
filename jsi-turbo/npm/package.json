@@ -19,6 +19,9 @@
     "RustTurbo.podspec",
     "README.md"
   ],
+  "bin": {
+    "react-native-rust-turbo": "scripts/cli.js"
+  },
   "scripts": {
     "build": "node scripts/build.js",
     "prepack": "node scripts/prepack.js"

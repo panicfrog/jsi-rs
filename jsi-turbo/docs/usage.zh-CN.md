@@ -66,6 +66,18 @@ cd android && ./gradlew assembleDebug
 
 ## 2. 写一个模块包
 
+用 CLI 脚手架生成(从 registry 安装即可直接用,不需要 jsi-rs
+checkout):
+
+```bash
+npx react-native-rust-turbo init my-math-utils
+```
+
+生成物自带可运行的示例模块(`add`、`greet`、一个 async 方法、一个
+getter)——装进 app 验证跑通,然后改成你的逻辑。三个名字(npm 包名 /
+cargo crate 名 / `#[RustTurboModule("..")]` 模块名)由同一个参数派生,
+杜绝不一致。
+
 一个模块包 = 一个 Rust crate + npm 元数据:
 
 ```

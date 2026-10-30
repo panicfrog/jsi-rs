@@ -68,6 +68,18 @@ the platform hooks recompile automatically.
 
 ## 2. Write a module package
 
+Scaffold one with the CLI (works straight from the registry install —
+no jsi-rs checkout involved):
+
+```bash
+npx react-native-rust-turbo init my-math-utils
+```
+
+This generates a package with a runnable demo module (`add`, `greet`,
+an async method, a getter) — install it, verify it, then make it yours.
+The three names (npm package / cargo crate / `#[RustTurboModule("..")]`
+module) are derived from the one argument, so they cannot drift apart.
+
 A module package = one Rust crate + npm metadata:
 
 ```
