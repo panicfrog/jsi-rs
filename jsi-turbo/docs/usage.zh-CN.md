@@ -28,22 +28,21 @@ import { getMathUtils } from 'my-math-utils/generated/rust-turbo/MathUtils';
 - Rust(rustup;`rustup target add aarch64-apple-ios-sim aarch64-apple-ios
   aarch64-linux-android`),Android 需 Android SDK/NDK + JDK 21,
   iOS 需 Xcode + CocoaPods
-- jsi-rs 仓库一份 checkout(无需 `git submodule update`,见下)
+- `react-native-rust-turbo` npm 包自带 jsi-rs 的 Rust 源码——
+  **不需要 jsi-rs checkout**。(开发框架本身是例外:从 checkout
+  用 `file:` 安装,构建钩子每次构建时从 checkout 同步 crates)
 
 ## 1. 接入你的 app(每 app 一次)
 
 ### 1.1 安装两个包
 
 ```bash
-# 核心包:平台 carrier + 构建钩子(必须)
-npm install <jsi-rs 路径>/jsi-turbo/npm
+# 核心包:平台 carrier + 构建钩子 + 框架 crates
+npm install react-native-rust-turbo
 
 # 你的模块包(见第 2 节;开发期直接本地路径)
 npm install ./native/my-math-utils
 ```
-
-核心包经 `file:` 安装为 symlink,build hook 会自动定位 jsi-rs
-checkout(核心包在 `node_modules` 里时总能找到),**无需环境变量**。
 
 ### 1.2 iOS
 
@@ -105,8 +104,10 @@ my-math-utils/
 crate-type = ["lib"]
 
 [dependencies]
-jsi = { path = "<jsi-rs 路径>/jsi", default-features = false, features = ["macros", "serde"] }
-jsi-turbo = { path = "<jsi-rs 路径>/jsi-turbo" }
+# 框架 crates 来自核心包的 rust/ 目录(node_modules 里的兄弟包)
+# ——保证 cargo 图里只有一份
+jsi = { path = "../react-native-rust-turbo/rust/jsi", default-features = false, features = ["macros", "serde"] }
+jsi-turbo = { path = "../react-native-rust-turbo/rust/jsi-turbo" }
 linkme = "0.3"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -152,7 +153,9 @@ npm install(核心包 + 模块包)
 pod install / gradle 配置(autolinking 发现 RustTurbo)
 平台构建 → 构建钩子(pod script phase / rustTurboBuild task)
   → build.js 扫 node_modules 里所有 rust-turbo 模块包
-  → 生成聚合 superlib(<app>/node_modules/.cache/rust-turbo/)
+  → 生成聚合 superlib(<app>/node_modules/.cache/rust-turbo/;
+    框架 crates 来自核心包的 rust/ 目录,dev 安装时从 jsi-rs checkout
+    同步)
   → 一次 cargo 构建 → 单个 librust_app.a → 链入平台产物
 JS import 生成 TS → bootstrap 触发 carrier → RustTurbo 代理安装
   → get(name) 惰性构造模块(plain object + prototype + NativeState)

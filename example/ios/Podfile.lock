@@ -1813,7 +1813,7 @@ PODS:
     - React-utils (= 0.88.1)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.88.1)
-  - RustTurbo (0.1.0):
+  - RustTurbo (0.88.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2197,7 +2197,7 @@ SPEC CHECKSUMS:
   ReactCodegen: 3840312f5071bb6b953b35a029c5c6dcf06b435e
   ReactCommon: b63ce798b898ed77c6cfdeb80b18080161f52ed5
   ReactNativeDependencies: a5164c3ebbe90d992022b5d9cbabbf770a6d7d05
-  RustTurbo: 19970386740874b25b817ac876ae1edab77f9a90
+  RustTurbo: ce1e8c9a5c05b0d8424cfb8e19df78de02be66e5
   SocketRocket: 37aec555668fb852ec12e3c0de59a86ca58f0871
   Yoga: d1c536142c5ff8ec8cd856ab2a7c227a1d875c8e
 

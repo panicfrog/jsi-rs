@@ -1,6 +1,6 @@
 {
   "name": "react-native-rust-turbo",
-  "version": "0.1.0",
+  "version": "0.88.1",
   "description": "Rust TurboModules for React Native: carrier + build hook. The Rust impl block is the spec; #[RustTurboModule] generates the method table, auto-registration and TypeScript bindings.",
   "license": "MIT",
   "repository": {
@@ -15,10 +15,12 @@
     "android/src/main/java/",
     "android/src/main/jni/",
     "scripts/",
+    "rust/",
     "RustTurbo.podspec",
     "README.md"
   ],
   "scripts": {
-    "build": "node scripts/build.js"
+    "build": "node scripts/build.js",
+    "prepack": "node scripts/prepack.js"
   }
 }

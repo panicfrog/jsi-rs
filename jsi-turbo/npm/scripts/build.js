@@ -239,12 +239,38 @@ function locateJsiRs(args, appRoot) {
   // 3. this checkout itself (works when developing inside the jsi-rs repo)
   const local = path.resolve(__dirname, '..', '..', '..');
   if (fs.existsSync(path.join(local, 'jsi-turbo', 'Cargo.toml'))) return local;
+  // 4. the published package ships the crates itself (prepack copies them
+  //    to <pkg>/rust/ as siblings, so path deps keep resolving)
+  const shipped = path.resolve(__dirname, '..', 'rust');
+  if (fs.existsSync(path.join(shipped, 'jsi', 'Cargo.toml'))) return null;
   console.error(
     'jsi-rs checkout not found. Set JSI_RS_DIR or add\n' +
       '  "rust-turbo": { "jsi-rs": "<relative path to the jsi-rs repo>" }\n' +
       'to the app\'s package.json.'
   );
   process.exit(1);
+}
+
+/**
+ * The crates the superlib (and module crates) depend on always come from
+ * this package's own rust/ directory — ONE copy in the cargo graph (a
+ * second copy fails on jsi-sys's `links = "jsi"`). In a registry install
+ * that dir ships with the tarball; in a "file:" dev install it doesn't
+ * exist, so we sync it from the located checkout on every build (cheap:
+ * pure source, ~500 files).
+ */
+function ensureShippedCrates(checkout, appRoot) {
+  // Always referenced through the app's node_modules — the same path
+  // string module packages use. cargo does NOT canonicalize paths, so
+  // mixing e.g. <repo>/jsi-turbo/npm/rust/jsi (the real path behind a
+  // "file:" symlink) with node_modules/react-native-rust-turbo/rust/jsi
+  // would put TWO jsi-sys copies in the graph (links = "jsi" conflict).
+  const shipped = path.join(appRoot, 'node_modules', 'react-native-rust-turbo', 'rust');
+  if (checkout) {
+    // dev ("file:") install: rust/ doesn't ship, sync it from the checkout
+    execFileSync('node', [path.resolve(__dirname, 'prepack.js'), '--repo-root', checkout], {stdio: 'inherit'});
+  }
+  return shipped;
 }
 
 /**
@@ -306,8 +332,9 @@ function ndkToolchainEnv(ndkDir, target, apiLevel) {
 function main() {
   const args = parseArgs(process.argv);
   const appRoot = path.resolve(args.app);
-  const jsiRs = locateJsiRs(args, appRoot);
-  checkVersions(appRoot, jsiRs);
+  const checkout = locateJsiRs(args, appRoot); // null when the package ships its own crates
+  const crateSource = ensureShippedCrates(checkout, appRoot);
+  checkVersions(appRoot, crateSource);
 
   const packages = discover(appRoot);
   if (packages.length === 0) {
@@ -319,13 +346,19 @@ function main() {
       packages.map(p => `  ${p.name} (crate: ${p.crateName}, modules: ${p.modules.join(', ')})`).join('\n')
   );
 
-  const genDir = generateSuperlib(appRoot, packages, jsiRs);
+  const genDir = generateSuperlib(appRoot, packages, crateSource);
 
   const profile = args.release ? 'release' : 'debug';
   const cargoArgs = ['build', '--manifest-path', path.join(genDir, 'Cargo.toml'), '--target', args.target];
   if (args.release) cargoArgs.push('--release');
   console.log(`cargo ${cargoArgs.join(' ')}`);
   const env = {...process.env};
+  // jsi.h comes from the app's own React Native. Injected as real env
+  // vars because cargo only reads .cargo/config.toml from the WORKING
+  // directory upward — the generated one next to the manifest (kept for
+  // humans running cargo manually in genDir) is invisible to this call.
+  env.JSI_DIR = path.join(appRoot, 'node_modules', 'react-native', 'ReactCommon', 'jsi');
+  env.REACT_NATIVE_DIR = path.join(appRoot, 'node_modules', 'react-native');
   if (args.target.includes('android')) {
     const ndk = args.ndk || process.env.ANDROID_NDK_HOME || process.env.NDK_HOME;
     if (!ndk) {

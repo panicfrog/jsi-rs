@@ -27,24 +27,22 @@ import { getMathUtils } from 'my-math-utils/generated/rust-turbo/MathUtils';
 
 - Rust (rustup; `rustup target add aarch64-apple-ios-sim aarch64-apple-ios
   aarch64-linux-android`), Android SDK/NDK + JDK 21, Xcode + CocoaPods
-- A checkout of the jsi-rs repository (no `git submodule update` needed,
-  see below)
+- The `react-native-rust-turbo` npm package ships the jsi-rs Rust sources
+  itself — **no jsi-rs checkout needed**. (Developing the framework itself
+  is the exception: install it via `file:` from a checkout; the build hook
+  then syncs the crates from it on every build.)
 
 ## 1. Wire up your app (once per app)
 
 ### 1.1 Install two packages
 
 ```bash
-# core package: platform carriers + build hooks (required)
-npm install <path-to-jsi-rs>/jsi-turbo/npm
+# core package: platform carriers + build hooks + the framework crates
+npm install react-native-rust-turbo
 
 # your module package (see section 2; local path during development)
 npm install ./native/my-math-utils
 ```
-
-The core package is installed via `file:` as a symlink; the build hook
-locates the jsi-rs checkout automatically (always found when the core
-package is in `node_modules`) — **no environment variables needed**.
 
 ### 1.2 iOS
 
@@ -110,8 +108,10 @@ Key `package.json` fields:
 crate-type = ["lib"]
 
 [dependencies]
-jsi = { path = "<path-to-jsi-rs>/jsi", default-features = false, features = ["macros", "serde"] }
-jsi-turbo = { path = "<path-to-jsi-rs>/jsi-turbo" }
+# the framework crates come from the core package's rust/ dir (a sibling
+# in node_modules) — one copy in the cargo graph
+jsi = { path = "../react-native-rust-turbo/rust/jsi", default-features = false, features = ["macros", "serde"] }
+jsi-turbo = { path = "../react-native-rust-turbo/rust/jsi-turbo" }
 linkme = "0.3"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -159,7 +159,9 @@ npm install (core package + module packages)
 pod install / gradle config (autolinking discovers RustTurbo)
 platform build → build hooks (pod script phase / rustTurboBuild task)
   → build.js scans node_modules for all rust-turbo module packages
-  → generates the aggregate superlib (<app>/node_modules/.cache/rust-turbo/)
+  → generates the aggregate superlib (<app>/node_modules/.cache/rust-turbo/;
+    framework crates come from the core package's rust/ dir, synced from
+    the jsi-rs checkout in dev installs)
   → one cargo build → a single librust_app.a → linked into platform artifacts
 JS import of generated TS → bootstrap triggers the carrier → RustTurbo
   proxy installed → get(name) lazily constructs the module

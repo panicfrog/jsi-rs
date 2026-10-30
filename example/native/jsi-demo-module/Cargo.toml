@@ -11,9 +11,11 @@ publish = false
 crate-type = ["lib"]
 
 [dependencies]
-# React Native already ships jsi, so don't compile a second copy of it
-jsi = { path = "../../../jsi", default-features = false, features = ["macros", "serde"] }
-jsi-turbo = { path = "../../../jsi-turbo" }
+# The framework crates always come from the core npm package's rust/ dir
+# (a sibling in node_modules) — ONE copy in the cargo graph; the build
+# hook syncs it from the jsi-rs checkout in dev, registry installs ship it
+jsi = { path = "../../node_modules/react-native-rust-turbo/rust/jsi", default-features = false, features = ["macros", "serde"] }
+jsi-turbo = { path = "../../node_modules/react-native-rust-turbo/rust/jsi-turbo" }
 linkme = "0.3"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }

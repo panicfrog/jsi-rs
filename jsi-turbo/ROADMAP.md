@@ -153,6 +153,17 @@ superlib,单次 cargo 构建。
   一起打进包(npm pack 实测 832MB/223 文件)——改为逐文件白名单后
   33kB/14 文件;`android/src/main/rust/`(rustTurboBuild 拷入的 `.a`)
   进根 .gitignore
+- ✅ **包内自举(方案 a,2026-10-30)**:六个 crate 源码随 npm 包发布
+  (prepack 拷入 `rust/`,兄弟布局保持 `../兄弟` path 依赖;fbjni 头
+  文件一并随包——react-native 的 npm 包不含它)。dev 的 `file:` 安装
+  无 prepack,build.js 每次构建从 checkout 同步 `rust/`。**crate 来源
+  统一走 `node_modules/react-native-rust-turbo/rust/`**(模块包与
+  superlib 同串引用;cargo 不做路径规范化,混用 symlink 真实路径会
+  出双份 jsi-sys 撞 `links = "jsi"`)。tarball 安装双平台端到端验证
+  (npm pack → 安装 → Android/iOS 全链 → 模拟器数值核对),dev 回退
+  后同样验证。附带发现:生成的 `.cargo/config.toml` 从未生效过
+  (cargo 只从工作目录向上找 config)——JSI_DIR/REACT_NATIVE_DIR 改为
+  build.js 直接注入 cargo 进程环境
 
 **验收**:新 app `npm install` 即用,不拷贝任何文件、不改
 Podfile/CMakeLists。

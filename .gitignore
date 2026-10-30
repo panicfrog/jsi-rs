@@ -10,3 +10,7 @@ jsi-turbo/npm/android/.cxx/
 jsi-turbo/npm/android/src/main/rust/
 # rust-turbo build artifacts (copied here by rustTurboBuild for CMake)
 android/src/main/rust/
+# prepack output (crates copied in at npm pack time)
+jsi-turbo/npm/rust/
+# SwiftPM build state under the SPM-integrated pods
+example/ios/.spm.pods/**/.build/

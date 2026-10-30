@@ -27,12 +27,15 @@ and writes the TypeScript bindings. No bridge, no per-module platform code.
 ## Requirements
 
 - React Native **0.88.x** (new architecture). jsi.h is the ABI contract
-  with the engine, so the jsi-rs checkout must target your RN line —
-  patch releases (0.88.x) are fine, other minors may not be.
+  with the engine, so this package must match your RN line — patch
+  releases (0.88.x) are fine, other minors may not be.
 - Rust via [rustup](https://rustup.rs) with the targets for your platforms
   (`rustup target add aarch64-apple-ios-sim aarch64-apple-ios
   aarch64-linux-android`)
 - Xcode + CocoaPods (iOS), Android SDK/NDK + JDK 21 (Android)
+
+No jsi-rs checkout needed — the framework's Rust sources ship inside this
+package (`rust/`), and jsi.h comes from your app's own react-native.
 
 ## Installation
 
@@ -74,6 +77,10 @@ declaring its modules:
   }
 }
 ```
+
+Its `Cargo.toml` depends on the framework crates from this package:
+`jsi = { path = "../react-native-rust-turbo/rust/jsi" }` — one copy in
+the cargo graph.
 
 Full guide — method/type rules, TurboStruct, zero-copy ArrayBuffer,
 nested objects, JS callbacks, publishing:

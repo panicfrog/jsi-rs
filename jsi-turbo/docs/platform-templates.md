@@ -91,14 +91,14 @@ Nitro 的「零代码」实际是三层分工:
 
 ## 与 crates.io 发布的关系
 
-两条发布线互补、不冲突:
+**已定(2026-10-30):npm 单渠道(方案 a)** ——六个 crate 源码 +
+fbjni 头文件随 `react-native-rust-turbo` npm 包发布(prepack 拷入
+`rust/`),包内自举,tarball 安装双平台已端到端验证。crates.io 搁置:
+用户从不 `cargo add`(cargo 由构建钩子经 superlib 间接驱动),
+等有真实需求再做版本依赖形态(原方案 b)。
 
-- **crates.io**:Rust 侧依赖(`jsi`、`jsi-macros` 先发;
-  `jsi-sys`/`jsi-rn` 走必填环境变量);
-- **npm**:平台模板 + TS 绑定 + 构建脚本,把「每 app 一次」的
-  carrier 变成 autolinking 自动发现。
-
-npm 包名建议 `create-rust-turbo` / `<module>-turbo` 约定。
+此前设想的「crates.io 先发纯 Rust 层」不再必要——分发渠道不重要,
+代码独立才是本质诉求(P2 结论),npm 包已达成。
 
 ## 分步实施(草案)
 
