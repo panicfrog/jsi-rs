@@ -96,7 +96,9 @@ function discover(appRoot) {
       name: meta.name,
       dir: path.join(nm, dir),
       crateDir: path.join(nm, dir, rt.crate),
-      crateName: rt.crateName || path.basename(rt.crate).replace(/-([a-z])/g, (_, c) => c.toUpperCase()).replace(/-/g, '_'),
+      // the crate's real package name (used verbatim in the dependency
+      // declaration; cargo matches path deps by exact name)
+      crateName: rt.crateName || path.basename(rt.crate),
       modules: rt.modules,
     });
   }
@@ -123,10 +125,12 @@ function generateSuperlib(appRoot, packages, jsiRsDir) {
   const rel = p => path.relative(genDir, p);
 
   const deps = packages
-    .map(p => `${p.crateName} = { path = ${JSON.stringify(rel(p.crateDir))} }`)
+    .map(p => `${JSON.stringify(p.crateName).replace(/"/g, '')} = { path = ${JSON.stringify(rel(p.crateDir))} }`)
     .join('\n');
+  // Rust identifier form of the crate name for code references
+  const ident = name => name.replace(/-/g, '_');
   const anchors = packages
-    .flatMap(p => p.modules.map(m => `    ${p.crateName}::__jsi_turbo_force_${snake(m)},`))
+    .flatMap(p => p.modules.map(m => `    ${ident(p.crateName)}::__jsi_turbo_force_${snake(m)},`))
     .join('\n');
 
   fs.writeFileSync(

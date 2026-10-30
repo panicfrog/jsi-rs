@@ -18,7 +18,6 @@ target 'JsiDemo' do
   config = use_native_modules!
 
   # Rust JSI demo module
-  pod 'RustTurbo', :path => '../native/jsi-demo-module'
 
   use_react_native!(
     :path => config[:reactNativePath],

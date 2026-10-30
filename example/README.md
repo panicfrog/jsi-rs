@@ -23,40 +23,27 @@ of jsi-rs (see the crate versions in the workspace root).
   - Android: `rustup target add aarch64-linux-android` and [cargo-ndk]
 - Xcode + CocoaPods (iOS), Android SDK + NDK + JDK 21 (Android)
 
-## Build the Rust library
+## Build
 
-The app links **one** Rust aggregate library (`native/rust-app`) that contains
-every Rust module plus the [jsi-turbo](../jsi-turbo) runtime. Building it
-also runs `#[RustTurboModule]` macros, which write the TypeScript bindings
-under `native/jsi-demo-module/generated/rust-turbo/`.
-
-The crate is part of the jsi-rs cargo workspace, so its build output lands in
-the workspace's `target/` directory (`../../../target` from the crate).
+The Rust side is fully wired into the platform builds — there are no manual
+cargo steps:
 
 ```bash
-# from the repo root
-
-# iOS simulator
-cargo build --release -p rust-app --target aarch64-apple-ios-sim
-cp target/aarch64-apple-ios-sim/release/librust_app.a \
-   example/native/jsi-demo-module/librust-app.a
-
-# Android (arm64 emulator / device) — also a static library, linked into
-# libappmodules.so by the app's CMake
-cargo ndk build -t arm64-v8a -P 24 --release -p rust-app
-mkdir -p example/android/app/src/main/rust/arm64-v8a
-cp target/aarch64-linux-android/release/librust_app.a \
-   example/android/app/src/main/rust/arm64-v8a/
+npm install        # installs react-native-rust-turbo (core) + jsi-demo-module
+cd ios && pod install && xcodebuild ...   # cargo runs from the pod script phase
+cd android && ./gradlew assembleDebug     # cargo runs from the rustTurboBuild task
 ```
 
-Both platforms link the Rust **static library** into the app's own native
-build. The crate depends on `jsi` with `default-features = false`, which turns
-off the `bundled-jsi` feature: React Native already ships jsi, and the Rust
-library uses that copy instead of compiling a second one.
+- `jsi-demo-module` is a rust-turbo **module package**: its `#[RustTurboModule]`
+  impl blocks are the whole spec (method table, auto-registration, generated
+  TypeScript under `generated/rust-turbo/`).
+- `react-native-rust-turbo` is the **core package**: it carries the platform
+  carrier and build hooks that aggregate every installed module package into
+  ONE cargo static library per app (`.cargo` state under
+  `node_modules/.cache/rust-turbo/`).
+- Editing Rust just works on the next platform build.
 
-For iOS device builds, also build `aarch64-apple-ios` and either lipo the two
-`.a` files together or update the podspec. For more Android ABIs, build each
-target and copy it to `android/<ABI>/`.
+Metro for JS: `npm start` (only one app may own port 8081 at a time).
 
 ## Run on iOS
 

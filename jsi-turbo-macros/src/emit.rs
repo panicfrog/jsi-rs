@@ -523,8 +523,16 @@ fn ts_content(m: &ParsedModule) -> String {
          // eslint-disable-next-line @typescript-eslint/no-var-requires\n  \
          const rn = require('react-native') as {{ TurboModuleRegistry: {{ get(name: string): unknown }} }};\n  \
          rn.TurboModuleRegistry.get('RustTurbo'); // triggers the native bindings installer\n  \
-         if (!globalThis.RustTurbo) {{\n    throw new Error('RustTurbo bindings failed to install');\n  }}\n  \
-         return globalThis.RustTurbo;\n}}\n\n\
+         let proxy = globalThis.RustTurbo;\n  \
+         if (!proxy) {{\n    \
+         // retry once: a fresh install racing the module manager can miss\n    \
+         // the first synchronous hook\n    \
+         rn.TurboModuleRegistry.get('RustTurbo');\n    \
+         proxy = globalThis.RustTurbo;\n  }}\n  \
+         if (!proxy) {{\n    \
+         throw new Error(\n      \
+         'RustTurbo bindings failed to install. If this is a fresh install or a reload, restart the app; if it persists, check that the react-native-rust-turbo native library is linked (RustTurbo pod / librustturbo.so).');\n  }}\n  \
+         return proxy;\n}}\n\n\
          export interface {iface} {{\n{members}\n}}\n\n\
          export function {factory}(): {iface} {{\n  \
          return (globalThis.RustTurbo ?? bootstrap()).get('{mod}') as {iface};\n}}\n",

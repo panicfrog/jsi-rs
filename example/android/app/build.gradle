@@ -79,14 +79,6 @@ android {
 
     namespace "com.jsidemo"
 
-    // Custom app CMake: builds libappmodules.so together with the JSI bindings
-    // glue for the Rust module (src/main/jni/JsiDemoBindings.cpp)
-    externalNativeBuild {
-        cmake {
-            path "src/main/jni/CMakeLists.txt"
-        }
-    }
-
     defaultConfig {
         applicationId "com.jsidemo"
         minSdkVersion rootProject.ext.minSdkVersion
