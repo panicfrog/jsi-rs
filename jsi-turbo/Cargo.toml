@@ -16,3 +16,6 @@ jsi-turbo-macros = { path = "../jsi-turbo-macros" }
 linkme = "0.3"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
+# the async method executor: smol-rs core only (no reactor/timers/IO —
+# module authors add async-io/smol themselves as needed)
+futures-lite = "2.0"

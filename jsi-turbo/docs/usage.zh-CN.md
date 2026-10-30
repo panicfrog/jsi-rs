@@ -251,9 +251,34 @@ pub struct Point { pub x: f64, pub y: f64, pub label: String }
 
 ### 7.2 async → Promise
 
-- 方法体在 jsi-turbo worker 池执行(不阻塞 JS 线程)
-- resolve/reject 经 CallInvoker 跳回 JS 线程
+- 方法体在 jsi-turbo worker 池执行(cores − 1 个线程,不阻塞 JS
+  线程),真 waker 语义——挂起的 future 会让线程 park 而不是空转
+- resolve/reject 经 CallInvoker 跳回 JS 线程;方法体内 panic 会
+  reject Promise(不再挂死)
 - demo:`await turbo.slowAdd(20, 22)`
+
+**内置运行时刻意保持最小**:只有执行器,没有 reactor/timer/IO
+(仅一个小依赖 `futures-lite`)。需要什么就自己加普通 crate
+依赖——smol-rs 家族全部互通,因为 `async-io` 的全局 reactor 线程
+驱动唤醒,与 future 跑在哪个执行器上无关:
+
+```toml
+# 模块代码里要 timer / 异步 IO:
+async-io = "2"        # Timer、Async<TcpStream>…
+# 或者整个 smol 门面:
+smol = "2"
+```
+
+```rust
+pub async fn refresh(&self) -> anyhow::Result<()> {
+    async_io::Timer::after(std::time::Duration::from_secs(1)).await;
+    Ok(())
+}
+```
+
+tokio 生态库(`reqwest`、`sqlx`……)需要 tokio 运行时上下文:模块
+里自持一个 `tokio::runtime::Runtime`,async body 内用
+`handle.block_on(...)` 转接。
 
 ### 7.3 ArrayBuffer 零拷贝
 

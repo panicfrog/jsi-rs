@@ -29,7 +29,7 @@ pub mod callback;
 pub mod dispatcher;
 pub mod holder;
 pub mod object;
-pub mod pool;
+pub mod executor;
 pub mod promise;
 pub mod registry;
 mod prototype;

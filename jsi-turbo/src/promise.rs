@@ -9,13 +9,14 @@
 //! JS thread; the future itself must be pure Rust data.
 
 use std::future::Future;
-use std::pin::pin;
-use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+use std::panic::{self, AssertUnwindSafe};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use jsi::{IntoValue, JsiFn, JsiObject, JsiValue, RuntimeHandle};
 
 use crate::dispatcher::Dispatcher;
-use crate::pool;
+use crate::executor;
 
 /// Creates a JS Promise that settles with the outcome of `task`.
 ///
@@ -32,7 +33,7 @@ where
     // lifetime), matching the macro's async signature rules
     T: for<'a> IntoValue<'a> + Send + 'static,
     F: FnOnce() -> Fut + Send + 'static,
-    Fut: Future<Output = anyhow::Result<T>> + 'static,
+    Fut: Future<Output = anyhow::Result<T>> + Send + 'static,
 {
     let dispatcher = dispatcher.clone();
     let promise = jsi::create_promise(
@@ -40,8 +41,10 @@ where
             match &dispatcher {
                 Dispatcher::Inline => {
                     // single-threaded (test harness): run the body right here
-                    // and settle synchronously
-                    let result = run_task(task);
+                    // and settle synchronously (futures-lite's block_on parks
+                    // instead of spinning — same executor semantics as the
+                    // CallInvoker path, just on this thread)
+                    let result = futures_lite::future::block_on(run_task(task));
                     if let Err(e) = settle(rt, result, resolve, reject) {
                         eprintln!("jsi-turbo: settling promise failed: {e:#}");
                     }
@@ -63,8 +66,8 @@ where
     Ok(promise)
 }
 
-/// Runs the future on the worker pool and settles the promise on the JS
-/// thread via the dispatcher.
+/// Runs the future on the global executor and settles the promise on the
+/// JS thread via the dispatcher.
 fn detach<T, F, Fut>(
     dispatcher: &Dispatcher,
     task: F,
@@ -73,29 +76,52 @@ fn detach<T, F, Fut>(
 ) where
     T: for<'a> IntoValue<'a> + Send + 'static,
     F: FnOnce() -> Fut + Send + 'static,
-    Fut: Future<Output = anyhow::Result<T>> + 'static,
+    Fut: Future<Output = anyhow::Result<T>> + Send + 'static,
 {
     let dispatcher = dispatcher.clone();
-    pool::spawn(Box::new(move || {
-        let result = run_task(task);
+    executor::spawn(async move {
+        let result = run_task(task).await;
         dispatcher.dispatch(Box::new(move |rt| {
             if let Err(e) = settle(rt, result, resolve, reject) {
                 eprintln!("jsi-turbo: settling promise failed: {e:#}");
             }
             Ok(())
         }));
-    }));
+    });
 }
 
-/// Runs the task, converting panics into errors.
-fn run_task<T, F, Fut>(task: F) -> anyhow::Result<T>
+/// Runs the task, converting panics (both while creating the future and
+/// inside it) into errors so the promise rejects instead of hanging.
+async fn run_task<T, F, Fut>(task: F) -> anyhow::Result<T>
 where
+    T: Send + 'static,
     F: FnOnce() -> Fut,
-    Fut: Future<Output = anyhow::Result<T>>,
+    Fut: Future<Output = anyhow::Result<T>> + Send,
 {
-    let fut = std::panic::catch_unwind(std::panic::AssertUnwindSafe(task))
+    let fut = panic::catch_unwind(AssertUnwindSafe(task))
         .map_err(|p| anyhow::anyhow!("async method body panicked: {}", panic_message(&p)))?;
-    block_on(fut)
+    match CatchUnwind(AssertUnwindSafe(fut)).await {
+        Ok(result) => result,
+        Err(p) => Err(anyhow::anyhow!("async method body panicked: {}", panic_message(&p))),
+    }
+}
+
+/// `catch_unwind` for futures: polls the inner future, catching a panic
+/// at any await point (std has no Future equivalent).
+struct CatchUnwind<F>(AssertUnwindSafe<F>);
+
+impl<F: Future> Future for CatchUnwind<F> {
+    type Output = Result<F::Output, Box<dyn std::any::Any + Send>>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        // SAFETY: projection — F is not structurally pinned by us; the
+        // inner future is free to move (it was caught-unwind-safe anyway)
+        let inner = unsafe { self.map_unchecked_mut(|s| &mut *s.0) };
+        match panic::catch_unwind(AssertUnwindSafe(|| inner.poll(cx))) {
+            Ok(poll) => poll.map(Ok),
+            Err(p) => Poll::Ready(Err(p)),
+        }
+    }
 }
 
 /// Converts the result and calls resolve/reject. Must run on the JS thread.
@@ -126,25 +152,5 @@ fn panic_message(p: &Box<dyn std::any::Any + Send>) -> String {
         s.clone()
     } else {
         "unknown panic".into()
-    }
-}
-
-/// A busy-poll block_on; jsi-turbo async bodies have no suspension points of
-/// their own beyond real awaits, and a spinning poll is sufficient (same
-/// approach as the jsi-tests harness).
-fn block_on<F: Future>(fut: F) -> F::Output {
-    unsafe fn noop(_: *const ()) {}
-    unsafe fn clone(p: *const ()) -> RawWaker {
-        RawWaker::new(p, &VTABLE)
-    }
-    static VTABLE: RawWakerVTable = RawWakerVTable::new(clone, noop, noop, noop);
-    let waker = unsafe { Waker::from_raw(RawWaker::new(std::ptr::null(), &VTABLE)) };
-    let mut cx = Context::from_waker(&waker);
-    let mut fut = pin!(fut);
-    loop {
-        match fut.as_mut().poll(&mut cx) {
-            Poll::Ready(out) => return out,
-            Poll::Pending => std::hint::spin_loop(),
-        }
     }
 }

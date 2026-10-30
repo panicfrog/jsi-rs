@@ -258,6 +258,7 @@ invoker 里连同 `Dispatcher` 一起捕获,`Send + Sync` 可存进模块;
 | Android 用 .so 还是 .a | **必须 .a(staticlib)**:cdylib 链接会丢弃 cxx 桥的 C++ 对象(as-needed)→ undefined symbol |
 | 模块 crate 依赖 linkme | 必须直接依赖(宏生成代码硬编码 `::linkme` 路径,re-export 无效) |
 | async 签名禁 JSI 类型 | 宏与 `promise::spawn` 的 HRTB(`for<'a> IntoValue<'a>`)约束双重保证;`&mut` 不变性是各处 reborrow 的原因 |
+| async 执行器(2026-10-30 重做) | worker 池 cores−1(`available_parallelism`,保底 1)+ `futures_lite::future::block_on`(真 waker,挂起即 park)。依赖面只有 `futures-lite`;timer/IO 用户自加 `async-io`/`smol`(全局 reactor 与执行器无关,互通);tokio 生态库需模块自持 Runtime。**教训**:共享 `async-executor` + tick 循环宿主机正常、Android 真机上任务永不派发(worker 全 park、promise 挂死,根因未明),二分定位后弃用;`CatchUnwind` 保证 panic → reject 而非挂死 |
 | 头文件 inline | jsi-sys 三个头的 87 个函数已 inline 化;新增头文件函数必须 inline(多归档成员包含同头会重复符号) |
 | Android ABI | 由 `gradle.properties` 的 `reactNativeArchitectures` 控制;本项目约定 arm64-only |
 | reload 语义 | 注册表/线程池进程级;代理与实例 per-runtime,冷启动自动重装 |

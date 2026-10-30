@@ -17,3 +17,8 @@ jsi-turbo = { path = "../react-native-rust-turbo/rust/jsi-turbo" }
 linkme = "0.3"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
+
+# standalone: this crate is only ever built through the app's aggregate
+# superlib (in node_modules), whose dependency paths resolve there —
+# keeping it out of the repo workspace avoids resolving them here
+[workspace]

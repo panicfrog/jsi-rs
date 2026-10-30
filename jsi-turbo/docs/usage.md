@@ -268,10 +268,36 @@ pub struct Point { pub x: f64, pub y: f64, pub label: String }
 
 ### 7.2 async → Promise
 
-- the method body runs on the jsi-turbo worker pool (never blocks the JS
-  thread)
-- resolve/reject hop back to the JS thread via the CallInvoker
+- the method body runs on the jsi-turbo worker pool (cores − 1 threads,
+  never blocks the JS thread), driven with real waker semantics — a
+  suspended future parks its thread instead of spinning
+- resolve/reject hop back to the JS thread via the CallInvoker; panics
+  inside the body reject the promise
 - demo: `await turbo.slowAdd(20, 22)`
+
+**The built-in runtime is deliberately minimal**: just an executor, no
+reactor/timers/IO (one small dependency, `futures-lite`). Add what you
+need as ordinary crate dependencies — everything in the smol-rs family
+composes, because `async-io`'s global reactor thread drives wakeups
+regardless of which executor ran the future:
+
+```toml
+# timers / async IO in module code:
+async-io = "2"        # Timer, Async<TcpStream>…
+# or the whole smol facade:
+smol = "2"
+```
+
+```rust
+pub async fn refresh(&self) -> anyhow::Result<()> {
+    async_io::Timer::after(std::time::Duration::from_secs(1)).await;
+    Ok(())
+}
+```
+
+Tokio-ecosystem libraries (`reqwest`, `sqlx`, …) require the tokio
+runtime context: hold your own `tokio::runtime::Runtime` in the module
+and bridge with `handle.block_on(...)` inside the async body.
 
 ### 7.3 Zero-copy ArrayBuffer
 
