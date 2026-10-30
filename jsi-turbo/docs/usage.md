@@ -80,6 +80,22 @@ an async method, a getter) — install it, verify it, then make it yours.
 The three names (npm package / cargo crate / `#[RustTurboModule("..")]`
 module) are derived from the one argument, so they cannot drift apart.
 
+**Run init once per package, then add more modules by hand**: a package
+is one crate and can hold any number of `#[RustTurboModule]` impl
+blocks. Keeping modules together in one package is the recommended
+default: names cannot collide across packages, and the modules can
+share code freely. Reach for multiple packages only when you need
+independent publishing/versioning.
+
+> ⚠️ **Every new module must be added to the `modules` list in
+> package.json.** This is the one step people forget: the list drives
+> the iOS FORCE_LINK anchors, so a module missing from it **works on
+> Android but silently disappears on iOS** (the linker strips it — no
+> error, no warning, the module just isn't there). Whenever you add a
+> `#[RustTurboModule("Foo")]` impl block, immediately append `"Foo"` to
+> `rust-turbo.modules`. If a module is unexpectedly missing on iOS,
+> check this list first (and `RustTurbo.names()` from the JS console).
+
 A module package = one Rust crate + npm metadata:
 
 ```

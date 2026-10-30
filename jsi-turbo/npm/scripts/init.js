@@ -145,6 +145,11 @@ next steps:
   npm install <path-to>/${name}
   # then from JS:
   import { get${moduleName} } from '${name}/generated/rust-turbo/${moduleName}';
+
+adding more modules later: write another #[RustTurboModule("..")] impl
+block in src/lib.rs AND append the module name to rust-turbo.modules
+in package.json — a module missing from that list works on Android but
+silently disappears on iOS.
 `);
 }
 

@@ -78,6 +78,19 @@ getter)——装进 app 验证跑通,然后改成你的逻辑。三个名字(npm
 cargo crate 名 / `#[RustTurboModule("..")]` 模块名)由同一个参数派生,
 杜绝不一致。
 
+**每个包只 init 一次,后续模块手动加**:一个包就是一个 crate,放
+任意多个 `#[RustTurboModule]` impl 块。模块集中在一个包里是推荐的
+默认形态:不会跨包重名,模块之间还能自由共享代码。只有需要独立
+发布/独立版本时才拆多包。
+
+> ⚠️ **每新增一个模块,必须把模块名补进 package.json 的
+> `modules` 列表。** 这是最容易忘的一步:这个列表驱动 iOS 的
+> FORCE_LINK 锚,漏写的模块**在 Android 上正常、在 iOS 上静默消失**
+> (链接器直接裁掉——不报错、不警告,模块就是不在了)。所以每次加
+> `#[RustTurboModule("Foo")]` impl 块,顺手就把 `"Foo"` 追加到
+> `rust-turbo.modules`。如果模块在 iOS 上莫名失踪,先查这个列表
+> (也可以在 JS console 里用 `RustTurbo.names()` 对照)。
+
 一个模块包 = 一个 Rust crate + npm 元数据:
 
 ```
