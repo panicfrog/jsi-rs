@@ -34,7 +34,7 @@ fn main() {
                      # <app>/native/rust-app/.cargo/config.toml\n  \
                      [env]\n  \
                      REACT_NATIVE_DIR = {{ value = \"../../node_modules/react-native\", relative = true }}\n\n  \
-                     See jsi-turbo/docs/local-dependencies.md for the full wiring.\n"
+                     See jsi-turbo/docs/usage.md for the full wiring.\n"
                 );
             }
             vendored

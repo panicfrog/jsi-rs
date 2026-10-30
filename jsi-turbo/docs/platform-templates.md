@@ -132,7 +132,7 @@ npm 包名建议 `create-rust-turbo` / `<module>-turbo` 约定。
   Android gradle task)扫描 `node_modules` 中带 rust-turbo 标记的
   模块包 → 生成聚合 superlib(依赖 + FORCE_LINK)→ 一次 cargo 构建
   出单 `.a`(自动注入 `JSI_DIR`/`REACT_NATIVE_DIR`,见
-  [local-dependencies.md](local-dependencies.md));
+  [usage.md](usage.md));
 - **模块 npm 包(N 份,纯源码)**:Rust crate 源码 + 宏生成的 TS +
   `package.json` 元数据(crate 路径);不含平台文件、不含预构建产物;
 - 用户侧:`npm install react-native-rust-turbo <module>` 即用,走 RN
