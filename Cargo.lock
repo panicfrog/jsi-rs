@@ -208,7 +208,7 @@ dependencies = [
 
 [[package]]
 name = "jsi"
-version = "0.88.1"
+version = "0.88.2"
 dependencies = [
  "anyhow",
  "better_any",
@@ -222,7 +222,7 @@ dependencies = [
 
 [[package]]
 name = "jsi-macros"
-version = "0.88.1"
+version = "0.88.2"
 dependencies = [
  "heck",
  "proc-macro-error2",
@@ -233,7 +233,7 @@ dependencies = [
 
 [[package]]
 name = "jsi-rn"
-version = "0.88.1"
+version = "0.88.2"
 dependencies = [
  "anyhow",
  "cxx",
@@ -245,7 +245,7 @@ dependencies = [
 
 [[package]]
 name = "jsi-sys"
-version = "0.88.1"
+version = "0.88.2"
 dependencies = [
  "anyhow",
  "cxx",
@@ -255,7 +255,7 @@ dependencies = [
 
 [[package]]
 name = "jsi-tests"
-version = "0.88.1"
+version = "0.88.2"
 dependencies = [
  "anyhow",
  "cxx",
@@ -270,7 +270,7 @@ dependencies = [
 
 [[package]]
 name = "jsi-turbo"
-version = "0.1.0"
+version = "0.88.2"
 dependencies = [
  "anyhow",
  "futures-lite",
@@ -283,7 +283,7 @@ dependencies = [
 
 [[package]]
 name = "jsi-turbo-macros"
-version = "0.1.0"
+version = "0.88.2"
 dependencies = [
  "heck",
  "proc-macro-error2",

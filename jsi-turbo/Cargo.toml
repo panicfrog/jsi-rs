@@ -1,6 +1,6 @@
 [package]
 name = "jsi-turbo"
-version = "0.1.0"
+version = "0.88.2"
 edition = "2021"
 rust-version = "1.74"
 license = "MIT"

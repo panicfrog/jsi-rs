@@ -1,6 +1,6 @@
 {
   "name": "jsi-demo-module",
-  "version": "0.88.1",
+  "version": "0.88.2",
   "description": "Demo Rust TurboModules for jsi-rs: methods, getters, structs, zero-copy buffers, nested objects and JS callbacks.",
   "license": "MIT",
   "main": "generated/rust-turbo/TurboDemo.ts",

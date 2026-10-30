@@ -69,9 +69,10 @@ returns the same `(RuntimeHandle, CallInvoker)` pair as before.
 
 ## Versioning
 
-Crate versions strictly mirror the React Native version they target (the
-current `main` tracks 0.88.1), because jsi.h must match the engine build
-exactly. Older React Native versions are supported through long-lived
+Package versions track the React Native **line** they target: major.minor
+matches RN (the current `main` tracks 0.88.x), because jsi.h must match
+the engine build exactly; the patch number is our own release count on
+that line. Older React Native versions are supported through long-lived
 branches, frozen once stable:
 
 | Branch | React Native | Status |
