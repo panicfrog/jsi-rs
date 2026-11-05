@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.88.4 (unreleased)
+## 0.88.4 (2026-11-05)
 
 Two hardening fixes, both surfaced by monet-rn — the first TurboStruct
 consumer with cross-referencing structs and multi-word field names.
