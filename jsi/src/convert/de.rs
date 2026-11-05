@@ -60,6 +60,10 @@ impl<'a, 'rt: 'a, 'de> Deserializer<'de> for JsiDeserializer<'a, 'rt> {
             return self.deserialize_f64(visitor);
         }
 
+        if self.value.is_bool() {
+            return self.deserialize_bool(visitor);
+        }
+
         if self.value.is_string() {
             return self.deserialize_string(visitor);
         }
@@ -72,7 +76,13 @@ impl<'a, 'rt: 'a, 'de> Deserializer<'de> for JsiDeserializer<'a, 'rt> {
             return Err(anyhow::anyhow!("Symbols cannot be transferred to native code yet").into());
         }
 
-        unreachable!()
+        // Functions, ArrayBuffers, BigInts and anything else the serde
+        // bridge has no representation for: a conversion error, never a
+        // panic. This path also serves serde's IgnoredAny for unknown
+        // struct fields, where the value's type is arbitrary.
+        Err(anyhow::anyhow!(
+            "unsupported value type for deserialization (expected null, undefined, number, boolean, string, or object)"
+        ).into())
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
