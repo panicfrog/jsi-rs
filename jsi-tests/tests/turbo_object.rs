@@ -40,6 +40,17 @@ pub struct Layer {
     opacity: std::sync::atomic::AtomicU8,
 }
 
+/// Drops observed across all tests in this binary (runtimes tearing down
+/// in other tests bump it concurrently — always assert against a
+/// baseline snapshot, never an absolute value).
+static LAYER_DROPS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+impl Drop for Layer {
+    fn drop(&mut self) {
+        LAYER_DROPS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 impl Default for Layer {
     fn default() -> Self {
         Self {
@@ -87,7 +98,9 @@ pub struct Canvas {
 impl Canvas {
     pub fn create_layer(&self, _rt: &mut RuntimeHandle, name: String) -> anyhow::Result<Layer> {
         self.created.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        Ok(Layer { name, ..Default::default() })
+        let mut layer = Layer::default();
+        layer.name = name;
+        Ok(layer)
     }
 
     /// Takes the object back — the same Rust instance, by reference.
@@ -154,6 +167,51 @@ fn turbo_object_roundtrip() {
 
         // the module kept count of constructions
         assert_eq!(3., eval(rt, raw, "RustTurbo.get('Canvas').layersCreated").into_js::<f64>(rt));
+    });
+}
+
+/// The lifetime claim the whole TurboObject pattern stands on: dropping
+/// the last JS reference and collecting must run the instance's Drop —
+/// the exact chain monet-rn's connection objects ride (to_js →
+/// ModuleHolder → Arc behind the wrapper's NativeState). Method calls
+/// run first so the from_js Arc-clone path is exercised too.
+#[test]
+fn turbo_object_instance_is_reclaimed_by_gc() {
+    with_rt(|rt, raw| {
+        install(rt, Dispatcher::Inline).unwrap();
+
+        let baseline = LAYER_DROPS.load(std::sync::atomic::Ordering::Relaxed);
+        assert_eq!(
+            1.,
+            eval(
+                rt,
+                raw,
+                r#"(() => {
+                     globalThis.held = RustTurbo.get('Canvas').createLayer('gc-me');
+                     held.addPoint(1, 2);
+                     held.opacity = 0.5;
+                     return held.pointCount();
+                   })()"#
+            )
+            .into_js::<f64>(rt)
+        );
+
+        // Drop the only reference and collect: the Drop must run (on
+        // Hermes, the NativeState cell's finalizer fires on the
+        // background finalizer thread — poll for it).
+        eval(rt, raw, "globalThis.held = undefined; gc();");
+        let mut waited = 0u64;
+        while LAYER_DROPS.load(std::sync::atomic::Ordering::Relaxed) <= baseline
+            && waited < 5_000
+        {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            waited += 10;
+        }
+        assert!(
+            LAYER_DROPS.load(std::sync::atomic::Ordering::Relaxed) > baseline,
+            "gc() did not drop the TurboObject instance — the ModuleHolder/Arc \
+             chain behind the NativeState leaks"
+        );
     });
 }
 
