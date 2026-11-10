@@ -27,4 +27,14 @@ target_link_libraries(rustturbo
   rust_app
   ReactAndroid::jsi
   ReactAndroid::reactnative
-  fbjni::fbjni)
+  fbjni::fbjni
+  # librust_app.a is a static archive: it cannot carry its own linker
+  # dependencies, so whatever platform libraries the Rust side needs
+  # must be listed HERE, at the only real link this .so ever gets.
+  # `log` is android_logger's backend (ndk log library, present in
+  # every Android process — zero cost to link unconditionally).
+  # Stripping this line yields "undefined symbol: __android_log_buf_write"
+  # at this .so's link; the general form — capturing rustc's
+  # native-static-libs note from the cargo build and forwarding it
+  # here — is the follow-up once more than log shows up.
+  log)
