@@ -19,12 +19,21 @@ Pod::Spec.new do |s|
   # created at pod install time so the link settings are generated
   s.vendored_libraries = "librust-app.a"
 
+  # No :output_files on the script phase — DELIBERATELY. With outputs
+  # declared and no :input_files, Xcode's dependency analysis sees the
+  # archive from a previous build and skips the phase entirely: cargo
+  # never runs, and the app silently links the stale librust-app.a
+  # (source changes to the module packages stop reaching the binary —
+  # observed as the app running days-old code with only ld version
+  # warnings in the log). Without the declaration the phase runs on
+  # every build; cargo's own incremental cache makes a no-change build
+  # a few seconds — the same trade RN's "Bundle React Native code and
+  # images" phase makes.
   s.script_phases = [
     {
       :name => 'RustTurboBuild',
       :script => '"${PODS_TARGET_SRCROOT}/scripts/build-ios.sh"',
       :execution_position => :before_compile,
-      :output_files => ["${PODS_TARGET_SRCROOT}/librust-app.a"],
       :show_env_vars_in_log => false
     }
   ]
