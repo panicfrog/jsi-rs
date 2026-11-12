@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/panicfrog/jsi-rs"
+    "url": "git+https://github.com/panicfrog/jsi-rs.git"
   },
   "files": [
     "ios/",
